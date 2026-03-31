@@ -1,0 +1,136 @@
+---
+title: "File tools"
+description: "Read, write, and edit files on your local filesystem."
+---
+
+Three core tools cover all file operations: reading content, writing full file contents, and making targeted edits. Together they handle everything from inspecting a config file to rewriting a source module.
+
+## FileReadTool
+
+Reads file content and returns it with line numbers prefixed to each line. Supports text files, images (PNG, JPEG, GIF, WebP), PDFs, and Jupyter notebooks (`.ipynb`).
+
+### Parameters
+
+<ParamField path="file_path" type="string" required>
+  Absolute path to the file to read.
+</ParamField>
+
+<ParamField path="offset" type="number">
+  Line number to start reading from (1-indexed). Use this together with `limit` to read large files in sections.
+</ParamField>
+
+<ParamField path="limit" type="number">
+  Maximum number of lines to read. Omit to read until the end of the file (subject to the token limit).
+</ParamField>
+
+<ParamField path="pages" type="string">
+  Page range for PDF files (e.g. `"1-5"`, `"3"`, `"10-20"`). Only applies to PDF files. Maximum 20 pages per request.
+</ParamField>
+
+### Returns
+
+File content as a string with each line prefixed by its line number (e.g. `1: content`). For images, returns base64-encoded data. For notebooks, returns the parsed cell array.
+
+### Example
+
+Reading lines 100–150 of a large source file:
+
+```json
+{
+  "file_path": "/home/user/project/src/server.ts",
+  "offset": 100,
+  "limit": 50
+}
+```
+
+<Note>
+  If the file has already been read in the current session and has not changed on disk, the tool returns a lightweight stub rather than re-sending the full content. This avoids duplicating large files in the conversation context.
+</Note>
+
+---
+
+## FileWriteTool
+
+Creates a new file or completely overwrites an existing file with the provided content. Parent directories are created automatically if they do not exist.
+
+### Parameters
+
+<ParamField path="file_path" type="string" required>
+  Absolute path to the file to write. Must be an absolute path, not a relative one.
+</ParamField>
+
+<ParamField path="content" type="string" required>
+  The full content to write to the file. This replaces the entire file.
+</ParamField>
+
+### Returns
+
+Confirmation indicating whether a file was created (`create`) or updated (`update`), along with the file path and a structured diff of the changes.
+
+### Example
+
+Creating a new configuration file:
+
+```json
+{
+  "file_path": "/home/user/project/.eslintrc.json",
+  "content": "{\n  \"extends\": \"eslint:recommended\"\n}\n"
+}
+```
+
+<Warning>
+  FileWriteTool replaces the entire file contents. For targeted changes to an existing file, use FileEditTool instead to avoid accidentally overwriting sections you did not intend to change.
+</Warning>
+
+<Note>
+  For existing files, FileWriteTool requires the file to have been read in the current session. If the file has been modified externally since the last read, the write is rejected to prevent overwriting unseen changes.
+</Note>
+
+---
+
+## FileEditTool
+
+Makes an exact string replacement in an existing file. Use this for surgical edits where you want to change a specific block of text without touching the rest of the file.
+
+### Parameters
+
+<ParamField path="file_path" type="string" required>
+  Absolute path to the file to edit.
+</ParamField>
+
+<ParamField path="old_string" type="string" required>
+  The exact text to find in the file and replace. Must match the file content character-for-character, including whitespace and indentation.
+</ParamField>
+
+<ParamField path="new_string" type="string" required>
+  The replacement text. The `old_string` in the file will be replaced with this value.
+</ParamField>
+
+<ParamField path="replace_all" type="boolean">
+  When `true`, replaces every occurrence of `old_string` in the file. Defaults to `false`, which requires `old_string` to appear exactly once.
+</ParamField>
+
+### Returns
+
+Confirmation that the file was updated successfully, along with the file path and whether the user modified the proposed changes before accepting.
+
+### Example
+
+Renaming a function across a file:
+
+```json
+{
+  "file_path": "/home/user/project/src/utils.ts",
+  "old_string": "export function fetchUser(",
+  "new_string": "export function getUser(",
+  "replace_all": false
+}
+```
+
+<Tip>
+  Include surrounding lines in `old_string` to uniquely identify the target location. If `old_string` appears more than once and `replace_all` is `false`, the tool returns an error rather than guessing which occurrence to replace.
+</Tip>
+
+<Note>
+  FileEditTool requires the file to have been read with FileReadTool in the current session. The edit is rejected if the file has been modified externally since the last read, ensuring Claude only edits content it has seen.
+</Note>

@@ -1,0 +1,75 @@
+---
+title: "Feature Flags"
+description: "Build-time feature flags that control Claude Code's capabilities"
+---
+
+## Overview
+
+Claude Code uses build-time feature flags via Bun's bundler API. Flags are evaluated by a `feature()` function at bundle time — code paths behind disabled flags are dead-code-eliminated from the distributed package before it reaches users.
+
+```typescript
+if (feature('VOICE_MODE')) {
+  // this entire block is removed from public builds when the flag is off
+  initializeVoiceMode()
+}
+```
+
+## Internal vs external builds
+
+The codebase distinguishes between Anthropic-internal builds and the public npm package using a sentinel string comparison:
+
+```typescript
+if ("external" !== 'ant' && isBeingDebugged()) {
+  process.exit(1)
+}
+```
+
+When the build target is set to `'ant'`, the expression `"external" !== 'ant'` evaluates to `false`, allowing internal tooling (debuggers, test harnesses) to run without triggering the anti-debugging guard. In public builds the expression is always `true`.
+
+Feature flags that are internal-only are similarly gated: the `feature()` call returns `false` in public builds, and the bundler removes the enclosed code entirely.
+
+## Feature flags
+
+| Flag | Description |
+|------|-------------|
+| `COORDINATOR_MODE` | Multi-agent orchestration mode |
+| `KAIROS` | Assistant/proactive agent mode |
+| `VOICE_MODE` | Voice input via speech-to-text |
+| `BRIDGE_MODE` | Mobile/web remote control bridge |
+| `SSH_REMOTE` | SSH remote execution |
+| `DIRECT_CONNECT` | Direct server connections |
+| `ULTRAPLAN` | Advanced planning mode |
+| `BUDDY` | Companion sprite Easter egg |
+| `FORK_SUBAGENT` | Agent forking capability |
+| `TRANSCRIPT_CLASSIFIER` | Auto-mode safety classifier |
+| `EXPERIMENTAL_SKILL_SEARCH` | Skill discovery feature |
+| `WEB_BROWSER_TOOL` | Browser automation tool |
+
+<Note>
+These flags are compiled at build time. You cannot enable or disable them at runtime — their values are fixed in the distributed package you install.
+</Note>
+
+## Internal codenames
+
+The source code references several internal project codenames. These appear in file names, analytics event prefixes, and comments.
+
+<AccordionGroup>
+  <Accordion title="Known codenames">
+
+| Codename | Meaning |
+|----------|---------|
+| `Tengu` | Analytics event prefix (`tengu_*`) — Claude Code's internal project name |
+| `Kairos` | Assistant/proactive agent mode |
+| `Fennec` | Earlier Claude model variant, now migrated to Opus |
+| `Lodestone` | Deep link / URL protocol handler |
+| `Tungsten` | Experimental tool type |
+| `Walrus` | Reactive compact feature |
+| `Torch` | Experimental command |
+| `Ultraplan` | Advanced multi-step planning mode |
+| `Grove` | UI component system |
+| `Buddy` | Animated companion sprite (Easter egg) |
+
+  </Accordion>
+</AccordionGroup>
+
+Codenames surface occasionally in error messages, log output, and settings keys. For example, analytics events are prefixed with `tengu_` (e.g. `tengu_sonnet45_to_46_migration`), and the Fennec model alias is handled by the [`migrateFennecToOpus`](/reference/migrations) migration.

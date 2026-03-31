@@ -1,0 +1,195 @@
+---
+title: Vim Mode
+description: Modal vim editing for the Claude Code prompt input — motions, operators, text objects, and mode reference.
+---
+
+Vim mode gives the Claude Code prompt input a modal editing model based on Neovim/Vim conventions. It applies to the **prompt input field only** — not to the conversation output displayed above it.
+
+## Enabling vim mode
+
+Toggle vim mode with the `/vim` slash command. The change takes effect immediately and persists across sessions.
+
+```text
+/vim
+```
+
+You can also enable it in your Claude Code settings.
+
+## Modes
+
+Claude Code vim mode implements three modes:
+
+| Mode | Indicator | Description |
+|---|---|---|
+| `INSERT` | `-- INSERT --` | Text is typed directly into the prompt (default when vim mode is off) |
+| `NORMAL` | `-- NORMAL --` | Keystrokes are interpreted as commands — movement, operators, etc. |
+| `VISUAL` | `-- VISUAL --` | Character-wise text selection |
+
+Claude Code starts in INSERT mode. Press `Escape` from INSERT mode to enter NORMAL mode.
+
+## Normal mode
+
+### Entering insert mode
+
+| Key | Action |
+|---|---|
+| `i` | Enter INSERT before the cursor |
+| `a` | Enter INSERT after the cursor |
+| `I` | Enter INSERT at the first non-blank character of the line |
+| `A` | Enter INSERT at the end of the line |
+| `o` | Open a new line below and enter INSERT |
+| `O` | Open a new line above and enter INSERT |
+
+### Motions
+
+Motions move the cursor. They can be prefixed with a count (e.g., `3w` moves forward three words).
+
+**Character and line movement**
+
+| Key | Action |
+|---|---|
+| `h` | Move left one character |
+| `l` | Move right one character |
+| `j` | Move down one logical line |
+| `k` | Move up one logical line |
+| `gj` | Move down one visual (wrapped) line |
+| `gk` | Move up one visual (wrapped) line |
+
+**Word movement**
+
+| Key | Action |
+|---|---|
+| `w` | Move to the start of the next word |
+| `b` | Move to the start of the previous word |
+| `e` | Move to the end of the current or next word |
+| `W` | Move to the start of the next WORD (whitespace-delimited) |
+| `B` | Move to the start of the previous WORD |
+| `E` | Move to the end of the current or next WORD |
+
+**Line positions**
+
+| Key | Action |
+|---|---|
+| `0` | Move to the start of the line |
+| `^` | Move to the first non-blank character of the line |
+| `$` | Move to the end of the line |
+
+**Buffer positions**
+
+| Key | Action |
+|---|---|
+| `gg` | Move to the beginning of the buffer |
+| `G` | Move to the last line (or line `N` with count prefix) |
+
+**Character find**
+
+| Key | Action |
+|---|---|
+| `f{char}` | Move to the next occurrence of `{char}` on the line |
+| `F{char}` | Move to the previous occurrence of `{char}` on the line |
+| `t{char}` | Move to just before the next occurrence of `{char}` |
+| `T{char}` | Move to just after the previous occurrence of `{char}` |
+| `;` | Repeat the last find in the same direction |
+| `,` | Repeat the last find in the opposite direction |
+
+### Operators
+
+Operators act on a range of text defined by a motion or text object. The pattern is `{operator}{motion}` or `{operator}{text-object}`.
+
+| Operator | Key | Description |
+|---|---|---|
+| Delete | `d` | Delete the text in the range and place it in the register |
+| Change | `c` | Delete the text in the range and enter INSERT mode |
+| Yank | `y` | Copy the text in the range into the register |
+
+Doubling the operator key acts on the current line: `dd` deletes the line, `cc` changes the line, `yy` yanks the line.
+
+**Shorthand operators**
+
+| Key | Equivalent | Description |
+|---|---|---|
+| `D` | `d$` | Delete from cursor to end of line |
+| `C` | `c$` | Change from cursor to end of line |
+| `Y` | `yy` | Yank the current line |
+| `x` | `dl` | Delete the character under the cursor |
+
+### Paste
+
+| Key | Action |
+|---|---|
+| `p` | Paste the register contents after the cursor |
+| `P` | Paste the register contents before the cursor |
+
+### Other normal mode commands
+
+| Key | Action |
+|---|---|
+| `r{char}` | Replace the character under the cursor with `{char}` |
+| `~` | Toggle the case of the character under the cursor |
+| `J` | Join the current line with the line below |
+| `u` | Undo the last change |
+| `.` | Repeat the last change |
+| `>>`| Indent the current line |
+| `<<` | De-indent the current line |
+
+## Text objects
+
+Text objects define a structured range of text. They are used after an operator in the form `{operator}{scope}{object}`, where scope is `i` (inner) or `a` (around/outer).
+
+**Word objects**
+
+| Object | Inner (`i`) | Around (`a`) |
+|---|---|---|
+| `w` | Word characters only | Word plus surrounding whitespace |
+| `W` | WORD characters only | WORD plus surrounding whitespace |
+
+**Delimiter objects**
+
+| Object | Inner (`i`) | Around (`a`) |
+|---|---|---|
+| `"` | Contents inside double quotes | Contents plus the quote characters |
+| `'` | Contents inside single quotes | Contents plus the quote characters |
+| `` ` `` | Contents inside backticks | Contents plus the backtick characters |
+| `(` or `)` or `b` | Contents inside parentheses | Contents plus the parentheses |
+| `[` or `]` | Contents inside brackets | Contents plus the brackets |
+| `{` or `}` or `B` | Contents inside braces | Contents plus the braces |
+| `<` or `>` | Contents inside angle brackets | Contents plus the angle brackets |
+
+**Examples**
+
+```text
+diw   — delete inner word (the word under the cursor)
+ca"   — change around double quotes (including the quotes)
+yi(   — yank inner parentheses (the contents, not the parens)
+da{   — delete around braces (contents and the braces)
+```
+
+## Visual mode
+
+| Key | Action |
+|---|---|
+| `v` | Enter character-wise VISUAL mode |
+| `Escape` | Return to NORMAL mode |
+
+In VISUAL mode, motions extend the selection. Press an operator key (`d`, `c`, `y`) to act on the selected text.
+
+## Count prefixes
+
+Most motions and operators accept a numeric count prefix that repeats the action. Type the count before the key:
+
+```text
+3w      — move forward 3 words
+5j      — move down 5 lines
+2dd     — delete 2 lines
+4f,     — move to the 4th comma on the line
+```
+
+The maximum supported count is `10000`.
+
+## Scope
+
+Vim mode applies to the **prompt input field** only. The conversation output above the input is not affected by vim mode and uses the standard scroll keybindings (`Page Up`, `Page Down`, `Ctrl+Home`, `Ctrl+End`) regardless of the current vim mode.
+
+<Note>
+  While in NORMAL mode, `Enter` executes the vim command buffer rather than submitting the prompt. Switch to INSERT mode before pressing `Enter` to submit, or use the `chat:submit` keybinding directly.
+</Note>

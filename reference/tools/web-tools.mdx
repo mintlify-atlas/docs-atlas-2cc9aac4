@@ -1,0 +1,100 @@
+---
+title: "Web tools"
+description: "Search the web and fetch content from URLs."
+---
+
+Two tools provide web access during a session: WebSearchTool for querying the web, and WebFetchTool for retrieving the content of a specific URL.
+
+## WebSearchTool
+
+Searches the web and returns results with titles, URLs, and a synthesized summary. Claude Code performs the search using Claude's built-in web search capability—no external API key is required.
+
+### Parameters
+
+<ParamField path="query" type="string" required>
+  The search query. Minimum 2 characters.
+</ParamField>
+
+<ParamField path="allowed_domains" type="string[]">
+  Restrict results to only these domains. Cannot be combined with `blocked_domains`.
+</ParamField>
+
+<ParamField path="blocked_domains" type="string[]">
+  Exclude results from these domains. Cannot be combined with `allowed_domains`.
+</ParamField>
+
+### Returns
+
+The original query, an array of search results (each containing titles and URLs) interleaved with text commentary synthesized from the results, and the duration of the search operation in seconds.
+
+### Example
+
+Searching for recent information about a library:
+
+```json
+{
+  "query": "React 19 concurrent features release notes"
+}
+```
+
+Restricting results to a specific domain:
+
+```json
+{
+  "query": "TypeScript strict mode configuration",
+  "allowed_domains": ["www.typescriptlang.org"]
+}
+```
+
+<Note>
+  WebSearchTool is available when using Claude Code with the Anthropic API (first-party), Vertex AI with Claude 4.0+ models, or Foundry. It is not available with all API providers or model versions.
+</Note>
+
+---
+
+## WebFetchTool
+
+Fetches content from a URL and processes it into a readable format. Useful for retrieving documentation, API references, changelogs, and other web content during a task.
+
+### Parameters
+
+<ParamField path="url" type="string" required>
+  The URL to fetch. Must be a valid URL. HTTP URLs are automatically upgraded to HTTPS.
+</ParamField>
+
+<ParamField path="prompt" type="string" required>
+  Instructions describing what to extract or summarize from the fetched content. The tool applies this prompt to the page content using a fast model before returning the result, keeping only the information relevant to your request.
+</ParamField>
+
+### Returns
+
+An object containing:
+- `result` — the processed content as a string, based on your `prompt`
+- `code` — the HTTP response status code
+- `codeText` — the HTTP status text (e.g. `"OK"`)
+- `bytes` — the size of the fetched content in bytes
+- `url` — the URL that was fetched
+- `durationMs` — time taken to fetch and process the content in milliseconds
+
+### Example
+
+Fetching the changelog for a specific package version:
+
+```json
+{
+  "url": "https://github.com/expressjs/express/releases/tag/5.0.0",
+  "prompt": "List the breaking changes introduced in this release."
+}
+```
+
+<Warning>
+  WebFetchTool cannot access authenticated or private URLs (Google Docs, Confluence, Jira, GitHub private repos, etc.). For authenticated services, look for a specialized MCP tool that provides authenticated access.
+</Warning>
+
+<Note>
+  If the URL redirects to a different host, the tool returns details about the redirect rather than following it automatically. Make a second WebFetchTool call with the redirect URL to retrieve the final content.
+</Note>
+
+<Tip>
+  For large pages, write a focused `prompt` that describes exactly what information you need. The tool uses a fast model to extract the relevant section, which reduces token usage and gives you a more useful result than receiving the full raw page.
+</Tip>

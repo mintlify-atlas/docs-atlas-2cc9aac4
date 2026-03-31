@@ -1,0 +1,72 @@
+---
+title: "Introduction"
+description: "Claude Code is Anthropic's terminal-based agentic AI coding assistant — a CLI tool that integrates Claude directly into your development workflow."
+---
+
+Claude Code brings the full intelligence of Claude into your terminal. It reads, writes, and edits your files, executes shell commands, searches your codebase, and orchestrates multi-agent workflows — all from a single command-line interface built by Anthropic.
+
+## Key capabilities
+
+<CardGroup cols={2}>
+  <Card title="File editing" icon="file-code" href="/reference/tools/file-tools">
+    Read, write, and apply AI-powered edits to files. Supports range reading, full rewrites, and structured diffs.
+  </Card>
+  <Card title="Shell execution" icon="square-terminal" href="/reference/tools/shell-tools">
+    Run shell commands with intelligent sandboxing. Executes bash commands, scripts, and manages your dev environment.
+  </Card>
+  <Card title="Codebase search" icon="magnifying-glass" href="/reference/tools/search-tools">
+    Search code using ripgrep (grep), glob patterns, and the Language Server Protocol for precise navigation.
+  </Card>
+  <Card title="MCP integration" icon="plug" href="/configuration/mcp-servers">
+    Connect to Model Context Protocol servers to extend Claude Code with custom tools and data sources.
+  </Card>
+  <Card title="Multi-agent orchestration" icon="network-wired" href="/advanced/multi-agent">
+    Spawn sub-agents, create agent teams, and coordinate parallel workstreams using the swarm system.
+  </Card>
+  <Card title="Voice mode" icon="microphone" href="/advanced/voice-mode">
+    Input prompts via speech-to-text with real-time streaming and voice keyterm detection.
+  </Card>
+</CardGroup>
+
+## Architecture overview
+
+Claude Code is built around a central agentic loop that drives all interactions.
+
+**Query loop** — The core of Claude Code is an async generator function in `query.ts` that manages the model call → tool execution → model call cycle. It handles context compaction, token budget tracking, streaming tool execution, and automatic recovery from API errors.
+
+**Tool system** — Over 40 built-in tools implement a common interface defined in `Tool.ts`. Each tool is independently sandboxed and subject to the permission system. Tools cover file I/O, shell execution, web search, MCP proxying, agent spawning, Jupyter notebooks, and more.
+
+**Slash commands** — Over 100 slash commands (e.g., `/init`, `/commit`, `/review`, `/doctor`) are registered via `commands.ts` and provide structured workflows on top of the query loop.
+
+**Hooks system** — An event-driven lifecycle system (`utils/hooks.ts`) allows external scripts to intercept tool calls, modify behavior, and automate responses to Claude Code events. Hooks can approve or deny tool usage and respond to file change events.
+
+## Technology stack
+
+| Technology | Role |
+|---|---|
+| **TypeScript** | Primary language across all 1,884 source files |
+| **Bun** | Runtime and bundler — feature flags use `bun:bundle` for dead-code elimination |
+| **React / Ink** | Terminal UI framework powering 140+ UI components and the full REPL screen |
+| **Commander.js** | CLI argument parsing via `@commander-js/extra-typings` |
+| **Anthropic SDK** | Official Claude API client |
+| **Zod** | Runtime schema validation |
+| **MCP SDK** | Model Context Protocol client for server integrations |
+
+## Internal codename
+
+Claude Code's internal project name is **Tengu** — visible as the `tengu_*` prefix on all analytics events logged through the telemetry pipeline. The codebase also references feature-flagged internal builds that differ from the public `@anthropic-ai/claude-code` npm package.
+
+<Note>
+  The public package is distributed as a compiled JavaScript bundle. Feature flags using `bun:bundle` perform dead-code elimination so internal-only features (`COORDINATOR_MODE`, `VOICE_MODE`, `BRIDGE_MODE`, etc.) are stripped from external builds.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get Claude Code running in your terminal in minutes.
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Full installation instructions, environment variables, and platform notes.
+  </Card>
+</CardGroup>

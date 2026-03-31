@@ -1,0 +1,75 @@
+---
+title: "Model Migrations"
+description: "Automatic model string migrations in Claude Code"
+---
+
+## Overview
+
+Claude Code automatically migrates stored model references when models are updated or renamed. Migrations run at startup, before the session is initialized, and update your settings transparently so you stay on a current model without manual intervention.
+
+## How migrations work
+
+Each migration is a small TypeScript module in `migrations/`. At startup, `main.tsx` calls each migration function in sequence. The typical pattern is:
+
+1. Read `userSettings` from `~/.claude/settings.json`
+2. Check whether the stored model string matches a known outdated value
+3. If it does, write the updated string back to `userSettings`
+4. Log an analytics event (e.g. `tengu_sonnet45_to_46_migration`) for internal tracking
+
+Migrations are idempotent — they check the current value before writing, so running them more than once has no effect.
+
+<Note>
+Only `userSettings` is modified. Model strings in project-level or local settings files are left untouched — migrations cannot safely rewrite files they do not own.
+</Note>
+
+## Known migrations
+
+| Migration | Description |
+|-----------|-------------|
+| `migrateSonnet45ToSonnet46` | Updates explicit `claude-sonnet-4-5` strings to the `sonnet` alias, which resolves to Sonnet 4.6. Only runs for Pro, Max, and Team Premium first-party subscribers. |
+| `migrateOpusToOpus1m` | Updates Opus model references to the 1M context variant. |
+| `migrateFennecToOpus` | Migrates the internal `fennec-latest` and `fennec-fast-latest` codename aliases to their current Opus equivalents. Internal (`ant`) builds only. |
+| `migrateLegacyOpusToCurrent` | Updates legacy Opus model ID strings to the current canonical model ID. |
+| `migrateSonnet1mToSonnet45` | Updates `sonnet[1m]` references to explicit Sonnet 4.5 strings (predecessor to `migrateSonnet45ToSonnet46`). |
+| `migrateAutoUpdatesToSettings` | Moves auto-update preferences into the unified settings file. |
+| `migrateBypassPermissionsAcceptedToSettings` | Migrates the bypass-permissions acceptance flag into settings. |
+| `migrateEnableAllProjectMcpServersToSettings` | Migrates the MCP server auto-enable flag into settings. |
+| `migrateReplBridgeEnabledToRemoteControlAtStartup` | Renames the bridge-enabled flag to `remoteControlAtStartup`. |
+| `resetAutoModeOptInForDefaultOffer` | Resets the auto-mode opt-in flag when the default offer changes. |
+| `resetProToOpusDefault` | Resets the default model for Pro subscribers after a model change. |
+
+## Unexpected model changes
+
+If you open Claude Code and find your model has changed, an automatic migration is the most likely cause. The migration updated your `userSettings` because the model you had selected was renamed or replaced.
+
+To verify, check `~/.claude/settings.json` and look at the `model` field. You can switch back to any supported model at any time using `/model` in the REPL, or by editing the file directly.
+
+```bash
+# View current user settings
+cat ~/.claude/settings.json
+```
+
+```json
+{
+  "model": "sonnet"
+}
+```
+
+To set a specific model manually:
+
+```bash
+# In Claude Code
+/model claude-opus-4-1
+```
+
+Or edit `~/.claude/settings.json` directly:
+
+```json
+{
+  "model": "claude-opus-4-1"
+}
+```
+
+## Staying current
+
+Run `/release-notes` inside Claude Code to see what changed in the current version, including any model updates or migration notes.

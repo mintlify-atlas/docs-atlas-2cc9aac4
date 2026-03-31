@@ -1,0 +1,96 @@
+---
+title: "Tools overview"
+description: "Claude Code's 40+ built-in tools for autonomous coding assistance."
+---
+
+Tools are the actions Claude Code takes autonomously during a session. When you ask Claude Code to complete a task, it selects and calls the appropriate tools—reading files, running commands, searching code, fetching documentation—without requiring you to invoke each step manually.
+
+## Tool categories
+
+<CardGroup cols={2}>
+  <Card title="File tools" icon="file" href="/reference/tools/file-tools">
+    Read, write, and edit files on your local filesystem.
+  </Card>
+  <Card title="Shell tools" icon="terminal" href="/reference/tools/shell-tools">
+    Execute shell commands and scripts in your environment.
+  </Card>
+  <Card title="Search tools" icon="magnifying-glass" href="/reference/tools/search-tools">
+    Find files by name and search file contents with regex.
+  </Card>
+  <Card title="Agent & task tools" icon="robot" href="/reference/tools/agent-tools">
+    Spawn sub-agents, manage background tasks, and coordinate multi-agent workflows.
+  </Card>
+  <Card title="Web tools" icon="globe" href="/reference/tools/web-tools">
+    Search the web and fetch content from URLs.
+  </Card>
+</CardGroup>
+
+## Complete tool list
+
+### File tools
+
+| Tool | Description |
+|------|-------------|
+| `FileReadTool` | Read files with optional line range; also handles images, PDFs, and Jupyter notebooks |
+| `FileEditTool` | Make exact string replacements in existing files |
+| `FileWriteTool` | Create a new file or fully overwrite an existing one |
+
+### Shell tools
+
+| Tool | Description |
+|------|-------------|
+| `BashTool` | Execute shell commands with optional timeout and working directory |
+| `PowerShellTool` | Execute PowerShell commands (Windows only) |
+
+### Search tools
+
+| Tool | Description |
+|------|-------------|
+| `GrepTool` | ripgrep-powered content search with regex support |
+| `GlobTool` | File pattern matching by name |
+
+### Agent & task tools
+
+| Tool | Description |
+|------|-------------|
+| `AgentTool` | Spawn a sub-agent to handle a complex task autonomously |
+| `TaskCreateTool` | Create a background task with a name and prompt |
+| `TaskListTool` | List all running and completed tasks |
+| `TaskGetTool` | Get output from a specific task |
+| `TaskUpdateTool` | Update a running task's instructions |
+| `TaskStopTool` | Stop a running task |
+| `TaskOutputTool` | Stream task output |
+| `TeamCreateTool` | Create a named team of agents with specific roles |
+| `TeamDeleteTool` | Disband an agent team |
+| `SendMessageTool` | Send a message to another agent's mailbox |
+
+### Web tools
+
+| Tool | Description |
+|------|-------------|
+| `WebSearchTool` | Search the web for information |
+| `WebFetchTool` | Fetch and convert content from a URL |
+
+### MCP tools
+
+| Tool | Description |
+|------|-------------|
+| `MCPTool` | Proxy calls to tools provided by MCP servers |
+| `ListMcpResourcesTool` | List resources exposed by an MCP server |
+| `ReadMcpResourceTool` | Read the content of an MCP resource |
+| `McpAuthTool` | Authenticate with an MCP server |
+
+### Utility tools
+
+| Tool | Description |
+|------|-------------|
+| `TodoWriteTool` | Create and manage TODO lists for task tracking |
+| `SleepTool` | Pause execution for a specified duration |
+| `ScheduleCronTool` | Schedule recurring cron jobs |
+| `SkillTool` | Invoke skills and workflows |
+| `NotebookEditTool` | Edit cells in Jupyter notebooks |
+| `LSPTool` | Query Language Server Protocol diagnostics and symbols |
+| `BriefTool` | Generate a structured brief for a task |
+| `ConfigTool` | Read Claude Code configuration values |
+| `ToolSearchTool` | Search available tools by description |
+| `AskUserQuestionTool` | Prompt the user for input during a task |

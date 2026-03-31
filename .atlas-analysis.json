@@ -1,0 +1,120 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "Claude Code",
+  "projectDescription": "Anthropic's terminal-based agentic AI coding assistant that integrates Claude directly into your development workflow with 40+ built-in tools, 100+ slash commands, and multi-agent orchestration.",
+  "theme": "luma",
+  "primaryColor": "#94cb04",
+  "lightColor": "#545454",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/architecture",
+              "concepts/query-loop",
+              "concepts/tool-system",
+              "concepts/permissions"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/authentication",
+              "configuration/settings",
+              "configuration/mcp-servers",
+              "configuration/plugins"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/multi-agent",
+              "advanced/session-management",
+              "advanced/voice-mode",
+              "advanced/sdk-mode",
+              "advanced/context-management"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Command Reference",
+            "pages": [
+              "reference/slash-commands",
+              "reference/keybindings",
+              "reference/vim-mode"
+            ]
+          },
+          {
+            "group": "Built-in Tools",
+            "pages": [
+              "reference/tools/overview",
+              "reference/tools/file-tools",
+              "reference/tools/shell-tools",
+              "reference/tools/search-tools",
+              "reference/tools/agent-tools",
+              "reference/tools/web-tools"
+            ]
+          },
+          {
+            "group": "Internals",
+            "pages": [
+              "reference/feature-flags",
+              "reference/analytics-telemetry",
+              "reference/migrations"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Agentic query loop with auto-compaction and context management",
+    "40+ built-in tools for file editing, shell execution, search, and web access",
+    "100+ slash commands for git, code review, MCP management, and more",
+    "Multi-agent orchestration with coordinator mode and swarm support",
+    "Multiple authentication methods: OAuth, API keys, AWS Bedrock, GCP Vertex AI",
+    "Sophisticated permission system with hook-based approvals",
+    "Remote control bridge for mobile/web access via WebSocket",
+    "Voice input mode with speech-to-text streaming",
+    "Session teleportation for cloud-based sync across machines",
+    "Plugin system with DXT format and MCP server integration",
+    "Full vim mode with motions, operators, and text objects",
+    "Terminal UI built on React/Ink with virtual scrolling"
+  ],
+  "publicApiSurface": [
+    "claude (CLI entrypoint)",
+    "query() — core agentic loop generator",
+    "QueryEngine — headless SDK query engine",
+    "Tool — base interface for all tools",
+    "BashTool — shell command execution",
+    "FileReadTool — file reading with range support",
+    "FileEditTool — AI-powered file editing",
+    "FileWriteTool — full file creation/overwrite",
+    "GrepTool — ripgrep-powered code search",
+    "GlobTool — file pattern matching",
+    "AgentTool — sub-agent spawning",
+    "WebSearchTool — web search",
+    "WebFetchTool — URL content fetching",
+    "MCPTool — MCP server tool proxying",
+    "TodoWriteTool — TODO list management",
+    "TaskCreateTool / TeamCreateTool — multi-agent task/team creation",
+    "/init, /commit, /review, /compact, /doctor, /mcp, /model, /teleport, /ultraplan (slash commands)",
+    "SDK entrypoint (entrypoints/sdk/)"
+  ]
+}

@@ -1,0 +1,172 @@
+---
+title: "The Query Loop"
+description: "How Claude Code drives the agentic model call → tool execution → model call cycle."
+---
+
+## Overview
+
+The query loop is the engine of Claude Code. It lives in `query.ts` as an async generator function named `query()`. Every user message — whether from the interactive REPL, the SDK, or the MCP server — passes through this loop.
+
+The loop follows a simple pattern:
+
+```text
+user prompt
+    │
+    ▼
+assemble context  ──────────────────────────────────┐
+    │                                               │
+    ▼                                               │
+API call to Claude model                            │
+    │                                               │
+    ├── text response ──► yield to caller           │
+    │                                               │
+    └── tool call(s) ──► execute in parallel        │
+                              │                     │
+                              ▼                     │
+                        tool results ───────────────┘
+                        (feed back as user messages)
+```
+
+The loop continues until the model returns a response with no tool calls, a stop reason of `end_turn`, or the session is aborted.
+
+## Lifecycle
+
+<Steps>
+  <Step title="User sends a prompt">
+    The prompt arrives as a `UserMessage` and is added to the message history.
+    Slash commands are extracted and dispatched before the API call.
+  </Step>
+
+  <Step title="Context assembly">
+    `context.ts` builds the system prompt and user context. This includes:
+
+    - The main system prompt (capabilities, rules, working directory)
+    - Memory files (CLAUDE.md from the project and user home)
+    - Attachment messages (file contents pinned to the conversation)
+    - The `task_budget` parameter to track token spend
+
+    ```typescript
+    import { prependUserContext, appendSystemContext } from './utils/api.js'
+    import { fetchSystemPromptParts } from './utils/queryContext.js'
+    ```
+  </Step>
+
+  <Step title="API call to the Claude model">
+    The assembled messages are sent to the Anthropic API via `services/api/`.
+    The model selected by `getRuntimeMainLoopModel()` is used (configurable via
+    `/model` or the `--model` flag).
+
+    Token budget tracking happens here via the `task_budget` parameter.
+  </Step>
+
+  <Step title="Model returns tool calls or text">
+    The streaming response is processed as it arrives. If the response contains
+    tool use blocks, they are collected. If the response is text only, it is
+    yielded to the caller and the loop ends.
+
+    When the model hits `max_output_tokens`, Claude Code automatically sends a
+    continuation prompt to recover the rest of the response.
+  </Step>
+
+  <Step title="Tools execute in parallel">
+    Parallel tool calls are dispatched via `StreamingToolExecutor` and
+    `runTools` in `services/tools/toolOrchestration.ts`. Each tool runs
+    concurrently unless it is marked as not concurrency-safe
+    (`isConcurrencySafe` returns `false`), in which case it is serialized.
+
+    ```typescript
+    import { StreamingToolExecutor } from './services/tools/StreamingToolExecutor.js'
+    import { runTools } from './services/tools/toolOrchestration.js'
+    ```
+  </Step>
+
+  <Step title="Tool results are fed back to the model">
+    Each tool result is wrapped as a `ToolResultBlockParam` and appended to the
+    message history as a user message. Large results are stored on disk via
+    `applyToolResultBudget` and Claude receives a preview with the file path.
+
+    ```typescript
+    import { applyToolResultBudget } from './utils/toolResultStorage.js'
+    ```
+  </Step>
+
+  <Step title="Loop continues">
+    The loop returns to step 2. Context is re-assembled (or compacted if needed)
+    and a new API call is made with the updated message history.
+  </Step>
+</Steps>
+
+## Context compaction
+
+When the conversation grows large, Claude Code applies one of five compaction strategies to stay within the model's context window:
+
+| Tier | Trigger | Behavior |
+|---|---|---|
+| **Snip Compact** | Context approaching limit | Removes messages from the middle of history, preserving the first and most recent turns |
+| **Microcompact** | Cache-aware shrinking needed | Shrinks content while preserving cache keys to avoid invalidating prompt cache |
+| **Auto Compact** | Conversation too long | Summarizes the full conversation history into a compact representation |
+| **Reactive Compact** | `prompt_too_long` API error | Emergency compaction triggered when the API rejects the request |
+| **Context Collapse** | Tool-heavy sequences | Collapses runs of tool-use / tool-result pairs into condensed summaries |
+
+Compaction logic lives in `services/compact/`. The relevant modules are:
+
+```typescript
+import {
+  calculateTokenWarningState,
+  isAutoCompactEnabled,
+} from './services/compact/autoCompact.js'
+import { buildPostCompactMessages } from './services/compact/compact.js'
+
+const reactiveCompact = feature('REACTIVE_COMPACT')
+  ? require('./services/compact/reactiveCompact.js')
+  : null
+
+const contextCollapse = feature('CONTEXT_COLLAPSE')
+  ? require('./services/contextCollapse/index.js')
+  : null
+```
+
+## Token budget management
+
+The `task_budget` API parameter tracks cumulative token spend across turns. Claude Code uses this to warn when the session is approaching its limit and to decide whether to trigger compaction.
+
+Token counts are tracked in `utils/tokens.ts`:
+
+```typescript
+import {
+  doesMostRecentAssistantMessageExceed200k,
+  finalContextTokensFromLastResponse,
+  tokenCountWithEstimation,
+} from './utils/tokens.js'
+import { ESCALATED_MAX_TOKENS } from './utils/context.js'
+```
+
+## max_output_tokens recovery
+
+When the model reaches `max_output_tokens` mid-response, the loop detects the `max_tokens` stop reason and automatically sends a continuation prompt. This lets Claude Code handle very long outputs — such as generating large files — without truncation.
+
+## Streaming tool execution
+
+Tool calls within a single model response are executed in parallel via `StreamingToolExecutor`. As each tool finishes, its result is streamed back rather than waiting for all tools to complete. This reduces latency for multi-tool turns.
+
+## Anti-debugging protection
+
+The CLI detects and exits if it detects a debugger is attached. It checks for `--inspect`, `--debug`, the Node.js inspector API, and the `NODE_OPTIONS` environment variable:
+
+```typescript
+if ("external" !== 'ant' && isBeingDebugged()) {
+  process.exit(1)
+}
+```
+
+Internal Anthropic builds (where the build-time constant equals `'ant'`) bypass this check.
+
+## Post-sampling hooks
+
+After each model response, `executePostSamplingHooks` runs any registered
+`PostToolResult` lifecycle hooks. These allow external scripts to observe or
+modify tool results before they are fed back into the next loop iteration.
+
+```typescript
+import { executePostSamplingHooks } from './utils/hooks/postSamplingHooks.js'
+```

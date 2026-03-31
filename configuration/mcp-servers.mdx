@@ -1,0 +1,194 @@
+---
+title: 'MCP servers'
+description: 'Extend Claude Code with custom tools and resources using the Model Context Protocol.'
+---
+
+**MCP (Model Context Protocol)** is an open standard that lets Claude Code connect to external servers that expose tools and resources. When an MCP server is connected, its tools appear alongside Claude Code's built-in tools and are available during every session.
+
+Use MCP servers to give Claude Code access to databases, internal APIs, external services, or any custom tool you build.
+
+---
+
+## Managing MCP servers
+
+Open the MCP management interface with:
+
+```bash
+/mcp
+```
+
+From this interface you can add, remove, enable, disable, and reconnect servers.
+
+### Common subcommands
+
+| Command | Description |
+| --- | --- |
+| `/mcp` | Open the MCP management UI |
+| `/mcp enable <name>` | Enable a specific server by name |
+| `/mcp disable <name>` | Disable a specific server by name |
+| `/mcp enable all` | Enable all configured servers |
+| `/mcp disable all` | Disable all configured servers |
+| `/mcp reconnect <name>` | Reconnect a server that has dropped |
+
+---
+
+## Server types
+
+Claude Code supports three transport types for MCP servers:
+
+<AccordionGroup>
+  <Accordion title="stdio — local process">
+    The server runs as a local child process. Claude Code spawns it and communicates over stdin/stdout. This is the most common type for local tools.
+
+    ```json
+    {
+      "my-server": {
+        "type": "stdio",
+        "command": "node",
+        "args": ["/path/to/server.js"],
+        "env": {
+          "DATABASE_URL": "postgres://localhost/mydb"
+        }
+      }
+    }
+    ```
+
+    `type` is optional for `stdio` servers—omitting it defaults to `stdio`.
+  </Accordion>
+
+  <Accordion title="SSE — server-sent events (remote)">
+    The server is a remote HTTP endpoint that uses Server-Sent Events. Use this for hosted or shared MCP servers.
+
+    ```json
+    {
+      "remote-server": {
+        "type": "sse",
+        "url": "https://mcp.example.com/sse",
+        "headers": {
+          "Authorization": "Bearer <token>"
+        }
+      }
+    }
+    ```
+
+    SSE servers support optional OAuth configuration for delegated authentication.
+  </Accordion>
+
+  <Accordion title="WebSocket">
+    The server communicates over a persistent WebSocket connection. Suitable for low-latency or streaming tool responses.
+
+    ```json
+    {
+      "ws-server": {
+        "type": "ws",
+        "url": "wss://mcp.example.com/ws",
+        "headers": {
+          "Authorization": "Bearer <token>"
+        }
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Configuration format
+
+MCP server configuration is a JSON object where each key is the server name and the value is the server config. Configuration can live at two scopes:
+
+- **Project scope** — `.claude/settings.json` in your project directory (affects only that project)
+- **User scope** — `~/.claude/settings.json` (available in all projects)
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/projects"]
+    },
+    "github": {
+      "type": "sse",
+      "url": "https://api.githubcopilot.com/mcp/sse"
+    }
+  }
+}
+```
+
+---
+
+## Official MCP registry
+
+Claude Code can browse and install servers from the official MCP registry. The registry is fetched at startup and updated automatically.
+
+To explore the registry, open the MCP management UI with `/mcp` and navigate to the **Add server** section.
+
+---
+
+## MCP authentication
+
+Some MCP servers require their own authentication flow. Use the `/mcp` interface and select a server to initiate its auth flow. Claude Code stores the resulting credentials separately per server.
+
+For servers that support OAuth, the authorization flow opens in your browser, similar to the main Claude Code OAuth flow.
+
+---
+
+## Listing MCP resources
+
+MCP servers can expose **resources** in addition to tools. Resources are files, documents, or data that Claude Code can read and include in context.
+
+To see available resources from connected servers, use:
+
+```bash
+/mcp
+```
+
+Navigate to a connected server and select **Resources**.
+
+---
+
+## Scoped MCP servers
+
+MCP servers are scoped to control where they are available:
+
+| Scope | Where it applies |
+| --- | --- |
+| `user` | All projects for the current user (`~/.claude/`) |
+| `project` | The current project only (`.claude/`) |
+| `local` | Current session only (not persisted) |
+
+Project-scoped servers are committed with the project and shared with all contributors who have the same server available.
+
+---
+
+## Bundled plugins that use MCP
+
+Some built-in Claude Code plugins expose their functionality as MCP servers internally. The **GitHub** and **Slack** integrations are examples—they register MCP servers automatically when the plugin is enabled. You do not need to configure these servers manually.
+
+See [Plugins](/configuration/plugins) for more information on enabling bundled plugins.
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Server fails to connect">
+    1. Verify the `command` or `url` is correct and reachable from your machine.
+    2. Check that all required environment variables are set in the `env` block of the server config.
+    3. Run `/mcp reconnect <name>` to retry the connection.
+    4. Run `/doctor` to check the overall health of your Claude Code setup.
+  </Accordion>
+
+  <Accordion title="Tools from an MCP server are not appearing">
+    1. Confirm the server is listed as connected in `/mcp`.
+    2. Check that the server is not disabled. Use `/mcp enable <name>` to re-enable it.
+    3. Restart Claude Code if you recently added or modified the server configuration.
+  </Accordion>
+
+  <Accordion title="Authentication errors on remote servers">
+    1. Open `/mcp` and select the server.
+    2. Use the auth option to re-run the authentication flow.
+    3. Verify that `headers` containing tokens are still valid and not expired.
+  </Accordion>
+</AccordionGroup>

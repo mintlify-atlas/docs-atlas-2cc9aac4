@@ -1,0 +1,104 @@
+---
+title: "Installation"
+description: "Install Claude Code on macOS, Windows, or Linux. Covers requirements, package managers, environment variables, and verification."
+---
+
+## Requirements
+
+- **Node.js 18 or higher** — Claude Code checks the Node.js version at startup and exits with an error if the requirement is not met.
+- **npm** — used to install the package. Yarn and pnpm also work.
+
+<Note>
+  Claude Code uses **Bun** as its internal runtime and bundler. Bun is bundled into the distributed npm package — you do not need to install Bun separately.
+</Note>
+
+## Install
+
+<CodeGroup>
+
+```bash npm
+npm install -g @anthropic-ai/claude-code
+```
+
+```bash yarn
+yarn global add @anthropic-ai/claude-code
+```
+
+```bash pnpm
+pnpm add -g @anthropic-ai/claude-code
+```
+
+</CodeGroup>
+
+## Platform notes
+
+<Tabs>
+  <Tab title="macOS">
+    Claude Code integrates with the **macOS Keychain** to store OAuth tokens and API keys securely. On first authentication, macOS will prompt you to allow Keychain access.
+
+    The startup sequence prefetches Keychain reads in parallel to minimize latency (`keychainPrefetch.ts`). If you use an MDM-managed device, Claude Code also reads MDM policy settings at startup via `plutil`.
+
+    Apple Terminal backup/restore is supported — Claude Code saves and restores terminal state on session start and end.
+  </Tab>
+  <Tab title="Windows">
+    Claude Code supports Windows via **PowerShell**. The `PowerShellTool` is available as the shell execution backend on Windows environments.
+
+    Run Claude Code from PowerShell or Windows Terminal. WSL (Windows Subsystem for Linux) is also a supported environment and provides the full Linux toolchain including bash.
+  </Tab>
+  <Tab title="Linux">
+    Standard installation via npm works on all major Linux distributions. No platform-specific configuration is required.
+
+    For containerized environments (e.g., Claude Code Remote with `CLAUDE_CODE_REMOTE=true`), the Node.js heap size is automatically increased to 8 GB to handle large workloads.
+  </Tab>
+</Tabs>
+
+## Environment variables
+
+These environment variables configure Claude Code's behavior. Set them in your shell profile or pass them inline before the `claude` command.
+
+| Variable | Description |
+|---|---|
+| `ANTHROPIC_API_KEY` | Primary authentication method. Set this to your Anthropic API key to bypass the OAuth flow. |
+| `ANTHROPIC_BASE_URL` | Override the default Anthropic API endpoint. Use this to point at a proxy, a custom gateway, or a compatible alternative API. |
+| `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | Override the maximum output tokens per model response. Useful for tasks that require longer completions than the default limit. |
+| `DISABLE_INTERLEAVED_THINKING` | Set to `1` to disable extended (interleaved) thinking. Extended thinking allows Claude to reason through complex problems before responding. |
+
+<Tip>
+  To persist environment variables across sessions, add them to your shell profile (e.g., `~/.zshrc`, `~/.bashrc`, or `~/.profile`).
+</Tip>
+
+## Verify installation
+
+Confirm the binary is available and check the installed version:
+
+```bash
+claude --version
+```
+
+Run the built-in diagnostics to verify authentication, connectivity, and configuration:
+
+```bash
+claude /doctor
+```
+
+The `/doctor` command checks your Node.js version, authentication status, API connectivity, and reports any configuration issues.
+
+## Upgrade
+
+To upgrade to the latest version:
+
+```bash
+npm update -g @anthropic-ai/claude-code
+```
+
+Claude Code also supports an auto-updater that can be controlled via the `isAutoUpdaterDisabled` configuration setting.
+
+## Uninstall
+
+To remove Claude Code:
+
+```bash
+npm uninstall -g @anthropic-ai/claude-code
+```
+
+This removes the `claude` binary from your PATH. Configuration files and session history stored in your home directory are not removed automatically.

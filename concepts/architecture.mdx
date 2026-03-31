@@ -1,0 +1,134 @@
+---
+title: "Architecture"
+description: "A structural overview of Claude Code's layers, entry points, and key modules."
+---
+
+## High-level overview
+
+Claude Code is organized into a set of discrete layers. A request enters through one of three entry points, travels through the query loop, executes tools, and returns output through the UI or SDK surface.
+
+```text
+┌─────────────────────────────────────────────────────┐
+│                   Entry Points                      │
+│  cli.tsx (REPL)  │  mcp.ts (server)  │  sdk/ (API) │
+└────────────────────────┬────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│               CLI Layer  (main.tsx)                 │
+│   Commander.js parsing · migrations · bootstrap     │
+└────────────────────────┬────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│            Query Loop  (query.ts)                   │
+│   model call → tool execution → model call → ...    │
+└──────────┬──────────────────────────┬───────────────┘
+           │                          │
+           ▼                          ▼
+┌──────────────────┐      ┌───────────────────────────┐
+│   Tool System    │      │       UI Layer             │
+│  Tool.ts / tools/│      │  screens/ · components/   │
+│  40+ built-in    │      │  Ink / React              │
+└──────────────────┘      └───────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────┐
+│              Services Layer  (services/)            │
+│   Anthropic API · MCP · OAuth · analytics · LSP     │
+└──────────────────────────┬──────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────┐
+│               State Layer  (state/)                 │
+│        React context  ·  Zustand store              │
+└─────────────────────────────────────────────────────┘
+```
+
+## Entry points
+
+Claude Code ships three entry points under `entrypoints/`:
+
+| Entry point | File | Purpose |
+|---|---|---|
+| Interactive CLI | `entrypoints/cli.tsx` | Terminal REPL — the primary interactive mode |
+| MCP server | `entrypoints/mcp.ts` | Runs Claude Code as a Model Context Protocol server |
+| SDK / headless | `entrypoints/sdk/` | Programmatic API for embedding Claude Code in other tools |
+
+## Core layers
+
+### 1. CLI layer
+
+`main.tsx` (803 KB, 4,684 lines) is the top-level entry point for the interactive mode. It handles:
+
+- Argument parsing via **Commander.js**
+- Running settings migrations (e.g. `migrateSonnet45ToSonnet46.ts`)
+- Session bootstrapping and trust dialogs
+- Anti-debugging detection — the CLI exits immediately if run under a Node.js debugger:
+
+```typescript
+if ("external" !== 'ant' && isBeingDebugged()) {
+  process.exit(1)
+}
+```
+
+### 2. Query loop
+
+`query.ts` contains the async generator function `query()` — the core of the agentic loop. It drives model calls, handles tool execution, manages context compaction, and tracks the token budget. See [The Query Loop](/concepts/query-loop) for a detailed walkthrough.
+
+### 3. Tool system
+
+`Tool.ts` defines the `Tool<Input, Output>` interface that every built-in and MCP tool implements. `tools.ts` assembles the active tool pool at runtime by filtering based on feature flags, environment variables, and permission context. Over 40 built-in tools live in `tools/`. See [Tool System](/concepts/tool-system).
+
+### 4. UI layer
+
+The terminal UI is built with **Ink** (React for the terminal). Key files:
+
+- `screens/REPL.tsx` — the main REPL screen (895 KB, 5,006 lines)
+- `components/` — 140+ UI components including `Messages.tsx`, `PermissionRequest.tsx`, `StructuredDiff/`, and `VirtualMessageList.tsx`
+- `hooks/` — 85+ React hooks, including `useCanUseTool.tsx` for permission checking
+
+### 5. Services layer
+
+`services/` integrates external systems:
+
+- `services/api/` — Anthropic API client with retry logic
+- `services/mcp/` — Model Context Protocol client
+- `services/oauth/` — OAuth 2.0 flow
+- `services/compact/` — Context compaction (auto, reactive, micro, snip)
+- `services/analytics/` — GrowthBook feature flags, Statsig event logging, OpenTelemetry tracing
+- `services/lsp/` — Language Server Protocol client
+
+### 6. State layer
+
+Global state is managed in `state/`:
+
+- `AppState.tsx` — React context
+- `AppStateStore.ts` — state shape definition
+- `store.ts` — Zustand-like reactive store
+
+## Key files
+
+| File | Role |
+|---|---|
+| `main.tsx` | CLI entry point — argument parsing, migrations, session bootstrap |
+| `query.ts` | Core agentic query loop |
+| `QueryEngine.ts` | Headless query engine used by the SDK and non-interactive modes |
+| `Tool.ts` | Tool type system — defines the interface all tools must satisfy |
+| `commands.ts` | Slash-command registry and loader (100+ commands) |
+| `context.ts` | System and user context builders fed into every API call |
+
+## Technology stack
+
+| Technology | Purpose |
+|---|---|
+| TypeScript | Primary language (1,884 files, 512,664 lines) |
+| Bun | Runtime and bundler — `bun:bundle` feature flags control dead-code elimination |
+| React / Ink | Terminal UI framework |
+| Anthropic SDK | Claude API client |
+| Commander.js | CLI argument parsing |
+| Zod | Runtime schema validation for tool inputs and config |
+| chalk | Terminal color output |
+| execa | Child process execution |
+| MCP SDK | Model Context Protocol integration |
+| GrowthBook | Feature flags and A/B testing |

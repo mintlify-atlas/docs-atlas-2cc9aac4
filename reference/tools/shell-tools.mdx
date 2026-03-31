@@ -1,0 +1,102 @@
+---
+title: "Shell tools"
+description: "Execute shell commands and scripts in your environment."
+---
+
+Shell tools let Claude Code run commands directly in your environment. On Unix-like systems, BashTool handles all shell execution. On Windows, PowerShellTool provides equivalent functionality using PowerShell.
+
+## BashTool
+
+Executes a shell command and returns its stdout, stderr, and exit code. Supports long-running commands, pipeline expressions, and any program available in your `PATH`.
+
+### Parameters
+
+<ParamField path="command" type="string" required>
+  The bash command to execute.
+</ParamField>
+
+<ParamField path="timeout" type="number">
+  Maximum time to wait for the command to complete, in milliseconds. Defaults to `120000` (2 minutes). The maximum allowed value is configurable per deployment.
+</ParamField>
+
+<ParamField path="description" type="string">
+  A brief human-readable description of what the command does (e.g. `"Install npm dependencies"`). Shown in the UI while the command runs.
+</ParamField>
+
+<ParamField path="workdir" type="string">
+  Absolute path to the directory in which to run the command. Defaults to the current working directory of the session.
+</ParamField>
+
+### Returns
+
+The combined stdout and stderr output of the command, truncated if it exceeds the result size limit.
+
+### Example
+
+Running tests in a specific directory:
+
+```json
+{
+  "command": "npm test -- --reporter=verbose",
+  "workdir": "/home/user/project",
+  "timeout": 60000,
+  "description": "Run test suite"
+}
+```
+
+Installing dependencies and building:
+
+```bash
+npm ci && npm run build
+```
+
+<Note>
+  Each BashTool invocation runs in a fresh shell. Environment variables, `cd` changes, and shell functions do not persist between calls. To run a command in a specific directory, use the `workdir` parameter rather than `cd && command`.
+</Note>
+
+<Tip>
+  On supported platforms, commands run inside a sandbox that restricts access to sensitive system resources. The sandbox is bypassed automatically when a command genuinely requires broader access, subject to your permission settings.
+</Tip>
+
+---
+
+## PowerShellTool
+
+Executes a PowerShell command on Windows. Available only on Windows platforms.
+
+### Parameters
+
+<ParamField path="command" type="string" required>
+  The PowerShell command or script to execute.
+</ParamField>
+
+<ParamField path="timeout" type="number">
+  Maximum time to wait for the command to complete, in milliseconds. Defaults to `120000` (2 minutes).
+</ParamField>
+
+<ParamField path="description" type="string">
+  A brief human-readable description of what the command does.
+</ParamField>
+
+<ParamField path="workdir" type="string">
+  Absolute path to the directory in which to run the command. Defaults to the current working directory of the session.
+</ParamField>
+
+### Returns
+
+The combined output of the PowerShell command.
+
+### Example
+
+Listing processes matching a name:
+
+```json
+{
+  "command": "Get-Process | Where-Object { $_.Name -like 'node*' }",
+  "description": "List Node.js processes"
+}
+```
+
+<Note>
+  PowerShellTool is only available when Claude Code is running on Windows. On macOS and Linux, use BashTool instead.
+</Note>

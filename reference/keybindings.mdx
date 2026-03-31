@@ -1,0 +1,191 @@
+---
+title: Keybindings
+description: Default keyboard shortcuts for Claude Code and how to customize them.
+---
+
+Claude Code uses a context-sensitive keybinding system. Shortcuts are organized by the UI context in which they apply — some work everywhere, others only when a specific dialog or panel is focused.
+
+## Default keybindings
+
+### Global
+
+These shortcuts are active everywhere, regardless of focus.
+
+| Keybinding | Action |
+|---|---|
+| `Ctrl+C` | Interrupt the current operation (double-press to exit) |
+| `Ctrl+D` | Exit Claude Code |
+| `Ctrl+L` | Redraw the screen |
+| `Ctrl+T` | Toggle the to-do list panel |
+| `Ctrl+O` | Toggle the transcript viewer |
+| `Ctrl+R` | Search command history |
+
+### Chat input
+
+These shortcuts apply when the chat prompt is focused.
+
+| Keybinding | Action |
+|---|---|
+| `Enter` | Submit the prompt |
+| `Shift+Tab` | Cycle through input modes (plan, auto, etc.) |
+| `Up` | Load the previous message from history |
+| `Down` | Load the next message from history |
+| `Ctrl+G` | Open the prompt in an external editor |
+| `Ctrl+X Ctrl+E` | Open the prompt in an external editor (readline binding) |
+| `Ctrl+S` | Stash the current prompt draft |
+| `Ctrl+_` | Undo last edit in the prompt |
+| `Ctrl+V` | Paste an image from the clipboard (Linux/macOS) |
+| `Alt+V` | Paste an image from the clipboard (Windows) |
+| `Escape` | Cancel the current operation |
+| `Meta+P` | Open the model picker |
+
+### Autocomplete
+
+These shortcuts apply when the autocomplete menu is visible.
+
+| Keybinding | Action |
+|---|---|
+| `Tab` | Accept the selected suggestion |
+| `Escape` | Dismiss the autocomplete menu |
+| `Up` | Select the previous suggestion |
+| `Down` | Select the next suggestion |
+
+### Scroll
+
+These shortcuts apply when scrolling through output.
+
+| Keybinding | Action |
+|---|---|
+| `Page Up` | Scroll up one page |
+| `Page Down` | Scroll down one page |
+| `Ctrl+Home` | Scroll to the top |
+| `Ctrl+End` | Scroll to the bottom |
+| `Ctrl+Shift+C` | Copy selected text |
+
+### Confirmation dialogs
+
+These shortcuts apply when a permission or confirmation prompt is shown.
+
+| Keybinding | Action |
+|---|---|
+| `Y` / `Enter` | Confirm yes |
+| `N` / `Escape` | Confirm no |
+| `Up` / `Down` | Navigate options |
+| `Tab` | Move to the next field |
+| `Space` | Toggle a checkbox |
+| `Ctrl+E` | Toggle the permission explanation |
+
+### Transcript viewer
+
+| Keybinding | Action |
+|---|---|
+| `Escape` / `Q` / `Ctrl+C` | Close the transcript viewer |
+| `Ctrl+E` | Toggle showing all messages |
+
+### History search
+
+Activated with `Ctrl+R` from the chat input.
+
+| Keybinding | Action |
+|---|---|
+| `Ctrl+R` | Show next match |
+| `Enter` | Execute the selected command |
+| `Tab` / `Escape` | Accept and return to input |
+| `Ctrl+C` | Cancel and return to input |
+
+## Customizing keybindings
+
+Run `/keybindings` to open `~/.claude/keybindings.json` in your default editor. If the file does not exist, Claude Code creates it from a template containing all default bindings.
+
+The file uses a JSON format with an array of context blocks:
+
+```json keybindings.json
+{
+  "$schema": "https://www.schemastore.org/claude-code-keybindings.json",
+  "bindings": [
+    {
+      "context": "Global",
+      "bindings": {
+        "ctrl+l": "app:redraw",
+        "ctrl+t": "app:toggleTodos"
+      }
+    },
+    {
+      "context": "Chat",
+      "bindings": {
+        "enter": "chat:submit",
+        "ctrl+g": "chat:externalEditor"
+      }
+    }
+  ]
+}
+```
+
+Each block specifies a `context` and a map of key patterns to action identifiers. To remap a key, change the action value. To unbind a key entirely, set it to `null`:
+
+```json keybindings.json
+{
+  "bindings": [
+    {
+      "context": "Chat",
+      "bindings": {
+        "ctrl+s": null
+      }
+    }
+  ]
+}
+```
+
+You can also bind a key to run a slash command directly:
+
+```json keybindings.json
+{
+  "bindings": [
+    {
+      "context": "Global",
+      "bindings": {
+        "ctrl+shift+d": "command:doctor"
+      }
+    }
+  ]
+}
+```
+
+### Available contexts
+
+| Context | When it applies |
+|---|---|
+| `Global` | Active everywhere, regardless of focus |
+| `Chat` | When the chat input is focused |
+| `Autocomplete` | When the autocomplete menu is visible |
+| `Confirmation` | When a confirmation or permission dialog is shown |
+| `Transcript` | When viewing the transcript |
+| `HistorySearch` | When searching command history |
+| `Settings` | When the settings panel is open |
+| `Select` | When a list or select component is focused |
+| `Scroll` | When scrolling through output |
+| `Task` | When a task or agent is running in the foreground |
+| `ThemePicker` | When the theme picker is open |
+| `DiffDialog` | When the diff dialog is open |
+| `ModelPicker` | When the model picker is open |
+| `Plugin` | When the plugin dialog is open |
+
+### Reserved shortcuts
+
+A small set of shortcuts cannot be rebound because they are handled before the keybinding system runs:
+
+| Shortcut | Reason |
+|---|---|
+| `Ctrl+C` | Hardcoded interrupt and exit |
+| `Ctrl+D` | Hardcoded exit |
+| `Ctrl+M` | Identical to `Enter` in all terminals |
+
+Terminal-level shortcuts such as `Ctrl+Z` (SIGTSTP) and `Ctrl+\` (SIGQUIT) are intercepted by the OS and never reach Claude Code.
+
+<Note>
+  Keybinding customization is a preview feature. Run `/doctor` after editing `keybindings.json` to check for validation errors.
+</Note>
+
+## Vim mode keybindings
+
+When vim mode is active, the chat input uses a modal editing model with its own keybindings for normal, insert, and visual modes. See [Vim Mode](/reference/vim-mode) for the full reference.

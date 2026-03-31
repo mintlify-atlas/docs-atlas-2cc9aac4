@@ -1,0 +1,83 @@
+---
+title: 'Context management'
+description: 'Understand how Claude Code manages the model context window and how to control compaction behavior for long-running sessions.'
+---
+
+Claude models have a fixed context window — the maximum amount of text that can be included in a single API request. In long sessions, the conversation history, tool outputs, and file contents can exceed this limit. Claude Code manages this automatically through a tiered compaction system, so your session continues without interruption.
+
+## Context usage
+
+Current context usage is displayed in the status bar at the bottom of the terminal. The indicator shows how much of the available context window is consumed by the current session.
+
+## Compaction tiers
+
+Claude Code uses five compaction strategies, applied in order of increasing aggression. Each strategy is implemented as a separate module in `services/compact/`.
+
+<Steps>
+  <Step title="Snip compact">
+    Removes messages from the middle of the conversation — typically older assistant and tool messages that are unlikely to be needed again. Recent messages and the initial system prompt are preserved. Implemented in `services/compact/compact.ts`.
+  </Step>
+  <Step title="Microcompact">
+    Cache-aware content shrinking that reduces message size while preserving Anthropic API prompt cache keys. This avoids invalidating cached prefixes, which would increase cost and latency. Implemented in `services/compact/microCompact.ts` and `services/compact/apiMicrocompact.ts`.
+  </Step>
+  <Step title="Auto compact">
+    Full summarization of the conversation history. Claude generates a concise summary of what has been discussed and accomplished, then replaces the raw history with that summary. Implemented in `services/compact/autoCompact.ts`. A system message marks the compaction boundary (`SystemCompactBoundaryMessage`) so the transcript remains auditable.
+  </Step>
+  <Step title="Reactive compact">
+    Emergency compaction triggered when the Anthropic API returns a `prompt_too_long` error. Claude Code catches the error mid-request, compacts the context, and retries automatically. This is the last line of defense before a request would fail entirely.
+  </Step>
+  <Step title="Context collapse">
+    Staged collapsing of tool-use sequences. Long chains of tool calls and their results are progressively collapsed into compact representations, freeing space while retaining the key outcomes. Collapse state is recorded as `ContextCollapseSnapshotEntry` and `ContextCollapseCommitEntry` entries in the session JSONL.
+  </Step>
+</Steps>
+
+## Triggering compaction manually
+
+Run `/compact` to trigger compaction at any time without waiting for the automatic threshold:
+
+```
+/compact
+```
+
+This is useful before starting a large task in an already long session, or when you notice the context indicator approaching its limit.
+
+## CLAUDE.md files
+
+`CLAUDE.md` files are project-level context files that Claude Code always includes at the start of every session. Place a `CLAUDE.md` at your project root (or in subdirectories) to provide Claude with persistent context about the codebase, coding conventions, or team preferences.
+
+```
+project/
+├── CLAUDE.md          # loaded for all sessions in this project
+├── src/
+│   └── CLAUDE.md      # loaded when working in src/
+└── ...
+```
+
+Because `CLAUDE.md` content is always injected, keep it concise. Verbose `CLAUDE.md` files consume context budget on every request, leaving less room for conversation and tool output.
+
+## Memory management
+
+The `/memory` command manages persistent notes that Claude stores across sessions. Unlike `CLAUDE.md`, memory entries are written by Claude itself in response to instructions:
+
+```
+/memory
+```
+
+Use `/memory` to view, edit, or clear stored notes. Memory is implemented via the in-memory directory abstraction in `memdir/`.
+
+## Tips for managing context
+
+<AccordionGroup>
+  <Accordion title="Start new sessions for unrelated tasks">
+    Each new session begins with a fresh context window. If you've finished one task and are starting something unrelated, open a new session rather than continuing the existing one. This gives Claude the full context window to work with and avoids compaction overhead.
+  </Accordion>
+  <Accordion title="Use /compact before large tasks">
+    If your session is already long and you're about to ask Claude to process a large file or run a multi-step workflow, run `/compact` first. This maximizes the available context for the upcoming work.
+  </Accordion>
+  <Accordion title="Keep CLAUDE.md files focused">
+    Only include information in `CLAUDE.md` that Claude needs to know for every task in that directory. Project-wide conventions, critical constraints, and key architectural decisions are good candidates. Avoid including things that Claude can discover by reading the code.
+  </Accordion>
+  <Accordion title="Break large tasks into smaller sessions">
+    Very large tasks — migrating a codebase, auditing thousands of files — will exhaust any context window. Break them into logical phases, each handled in its own session. Use `/export` or session titles to track progress across phases.
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,149 @@
+---
+title: 'Plugins'
+description: 'Extend Claude Code with new tools, commands, skills, and hooks using the plugin system.'
+---
+
+Plugins add new capabilities to Claude Code. A plugin can contribute tools, slash commands, output styles, hooks, and MCP server definitions. Plugins are distributed as **DXT** (Declarative Extension Toolkit) packages.
+
+---
+
+## Installing plugins
+
+### From the plugin marketplace
+
+```bash
+/plugin install <plugin-name>
+```
+
+Or use the full install command:
+
+```bash
+/install <plugin-name>
+```
+
+Claude Code connects to the official plugin marketplace, downloads the plugin, and activates it immediately.
+
+### From a local file
+
+```bash
+/plugin install /path/to/plugin.dxt
+```
+
+---
+
+## Managing installed plugins
+
+| Command | Description |
+| --- | --- |
+| `/plugin list` | Show all installed plugins and their status |
+| `/plugin remove <name>` | Remove an installed plugin |
+| `/reload-plugins` | Reload all plugins without restarting Claude Code |
+
+---
+
+## Built-in plugins
+
+Claude Code ships with a set of built-in plugins. These appear in the `/plugin` interface under a **Built-in** section and can be enabled or disabled per user.
+
+Built-in plugins that are available by default include:
+
+- **GitHub** — tools for interacting with GitHub repositories (issues, pull requests, code search)
+- **Slack** — tools for reading and sending Slack messages
+
+Built-in plugin state is stored in your user settings (`~/.claude/`).
+
+To enable or disable a built-in plugin, open:
+
+```bash
+/plugin
+```
+
+Select the plugin from the list and toggle its state.
+
+---
+
+## Plugin marketplace
+
+The official plugin marketplace is hosted and maintained by Anthropic. Marketplace plugins are versioned, reviewed, and automatically updated (for official marketplace sources).
+
+Claude Code fetches the marketplace catalog at startup. To browse available plugins, run `/plugin` and navigate to the **Marketplace** tab.
+
+Third-party marketplace sources can be registered, but they do not receive automatic updates by default.
+
+---
+
+## Automatic updates and orphan cleanup
+
+Plugins installed from official marketplace sources are updated automatically when a newer version is available. Claude Code checks for updates at startup and applies them in the background.
+
+**Orphaned plugins** — plugins whose marketplace source is no longer registered — are detected at startup and flagged for removal. Claude Code will prompt you before removing anything.
+
+To trigger a manual refresh:
+
+```bash
+/reload-plugins
+```
+
+---
+
+## Plugin security
+
+Plugins run with the same operating system permissions as Claude Code itself. Before installing a third-party plugin, verify the source.
+
+<Warning>
+  Only install plugins from sources you trust. A plugin has access to the same tools and file system paths that Claude Code can reach.
+</Warning>
+
+Official marketplace plugins are subject to Anthropic's review process. Plugins from unregistered sources bypass this review.
+
+---
+
+## Creating a custom plugin (DXT format)
+
+A DXT plugin is a directory (or `.dxt` zip archive) with a `manifest.json` at its root.
+
+### Minimal manifest
+
+```json
+{
+  "name": "my-plugin",
+  "version": "1.0.0",
+  "description": "A minimal example plugin",
+  "tools": [
+    {
+      "name": "say_hello",
+      "description": "Returns a greeting",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name to greet"
+          }
+        },
+        "required": ["name"]
+      }
+    }
+  ]
+}
+```
+
+### Manifest fields
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `name` | Yes | Unique plugin identifier |
+| `version` | Yes | Semver version string |
+| `description` | Yes | Short description shown in the plugin UI |
+| `tools` | No | Array of tool definitions (JSON Schema) |
+| `commands` | No | Array of slash command definitions |
+| `hooks` | No | Hook event handlers |
+| `mcpServers` | No | MCP server configurations bundled with the plugin |
+
+### Installing a local plugin for development
+
+```bash
+/plugin install ./my-plugin
+```
+
+After making changes, run `/reload-plugins` to pick up updates without restarting.

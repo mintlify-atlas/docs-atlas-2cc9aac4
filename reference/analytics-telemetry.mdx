@@ -1,0 +1,63 @@
+---
+title: "Analytics & Telemetry"
+description: "What data Claude Code collects and how to control it"
+---
+
+## Overview
+
+Claude Code includes an analytics infrastructure used to improve the product. The system is designed to collect metadata about how the tool is used — not the content of your code or conversations.
+
+## What is collected
+
+| Data type | Details |
+|-----------|---------|
+| Feature flag evaluations | Which flags are active in your build (GrowthBook A/B testing) |
+| Session events | Usage event logs sent to Statsig (e.g. commands run, tool invocations) |
+| Performance traces | OpenTelemetry spans exported in Perfetto format for internal profiling |
+| Diagnostic logs | PII-free diagnostic events stored locally and sent only on explicit request |
+
+### What is not collected
+
+- File contents
+- Code you write or read
+- Conversation text
+- File paths (the analytics type system enforces this at compile time — see below)
+
+The `services/analytics/index.ts` module defines a marker type used throughout the codebase to enforce that string values logged to analytics have been explicitly reviewed:
+
+```typescript
+// Forces explicit verification before logging any string
+export type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS = never
+```
+
+Any string that reaches an analytics call must be cast to this type, making it a compile-time checkpoint against accidentally logging sensitive content.
+
+## Analytics providers
+
+**GrowthBook** — feature flags and A/B testing. Used to roll out new capabilities gradually and run experiments on UI and model behavior.
+
+**Statsig** — usage event logging. Receives `tengu_*`-prefixed events (e.g. `tengu_tool_use`, `tengu_session_start`) describing how features are used without capturing content.
+
+**OpenTelemetry** — distributed tracing. Traces are exported in [Perfetto](https://perfetto.dev) format for internal performance analysis. The relevant files are `utils/telemetry/sessionTracing.ts` and `utils/telemetry/perfettoTracing.ts`.
+
+## How the sink works
+
+Analytics events are queued in memory before the sink is initialized. Once `attachAnalyticsSink()` is called during app startup, queued events are drained asynchronously via `queueMicrotask` — ensuring analytics initialization does not add latency to startup.
+
+PII-tagged values use `_PROTO_`-prefixed payload keys. These keys are stripped before events reach general-access backends (such as Datadog), and are only seen by the first-party event logging exporter which routes them to privileged BigQuery columns.
+
+## Diagnostic logging
+
+Diagnostic logs are stored locally. They are only transmitted when you explicitly trigger a report — for example by running `/doctor` or submitting feedback. No diagnostic data is sent in the background.
+
+## Privacy settings
+
+Run `/privacy-settings` to open the privacy configuration menu. From there you can review what is being collected and adjust your preferences.
+
+To opt out via environment variable, set:
+
+```bash
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+```
+
+This disables non-essential analytics and telemetry while leaving core functionality intact.

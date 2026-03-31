@@ -1,0 +1,153 @@
+---
+title: 'Settings'
+description: 'Customize Claude Code behavior through slash commands, configuration files, and environment variables.'
+---
+
+Claude Code stores user settings in `~/.claude/`. Project-specific settings are stored in `.claude/` inside your project directory. Most settings are accessible through slash commands without editing files directly.
+
+---
+
+## Settings categories
+
+<AccordionGroup>
+  <Accordion title="Model">
+    Claude Code selects a default model automatically. To switch models during a session, run:
+
+    ```bash
+    /model
+    ```
+
+    This opens a picker showing available models. Your selection is saved to your user settings and used in future sessions.
+
+    You can also pass a model name directly:
+
+    ```bash
+    /model claude-opus-4-1
+    ```
+
+    Model settings migrate automatically when Anthropic releases new versions—for example, Sonnet 4.5 settings are migrated to Sonnet 4.6 without manual changes.
+  </Accordion>
+
+  <Accordion title="Theme">
+    Claude Code ships with light, dark, and custom theme options. To open the theme picker:
+
+    ```bash
+    /theme
+    ```
+
+    Your theme choice is persisted to `~/.claude/` and applied on the next startup.
+  </Accordion>
+
+  <Accordion title="Output style">
+    Output style controls how Claude Code formats responses in the terminal. To change the current style:
+
+    ```bash
+    /output-style
+    ```
+
+    Available styles vary by installation. Custom output styles can be added through the plugin system.
+  </Accordion>
+
+  <Accordion title="Keybindings">
+    Claude Code uses standard readline-style keybindings by default. You can enable **vim mode** for modal editing:
+
+    ```bash
+    /vim
+    ```
+
+    Running `/vim` toggles between vim mode and standard (readline) mode. Vim mode includes motions, operators, and text objects. The mode indicator appears in the status line.
+
+    Custom keybindings can be defined in `~/.claude/keybindings.json`. Run `/keybindings` to open that file in your editor.
+  </Accordion>
+
+  <Accordion title="Permission rules">
+    Permission rules let you pre-approve or permanently block specific tool actions so Claude Code does not ask for confirmation each time.
+
+    - **Always-allow patterns** — tools and shell commands that run without a prompt
+    - **Always-deny patterns** — tools and shell commands that are always rejected
+
+    You can manage these rules through the permission dialog that appears when Claude Code requests access to a tool, or by editing your settings directly.
+
+    See [Permissions](/concepts/permissions) for the full permission model.
+  </Accordion>
+
+  <Accordion title="Memory (CLAUDE.md)">
+    Claude Code reads `CLAUDE.md` files to load persistent context at the start of every session.
+
+    | Location | Scope |
+    | --- | --- |
+    | `~/.claude/CLAUDE.md` | Global — loaded for every project |
+    | `<project-root>/CLAUDE.md` | Project — loaded when working in that directory |
+    | `<subdirectory>/CLAUDE.md` | Local — loaded when Claude Code operates in that subdirectory |
+
+    Use `CLAUDE.md` to provide standing instructions, project conventions, or background information that Claude should always have available.
+
+    To initialize a `CLAUDE.md` for the current project:
+
+    ```bash
+    /init
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Viewing and editing settings
+
+The `/config` command opens an interactive view of your current settings:
+
+```bash
+/config
+```
+
+You can inspect and edit values directly from this interface without opening JSON files manually.
+
+---
+
+## Environment variable overrides
+
+These environment variables override the corresponding settings at runtime:
+
+| Variable | Effect |
+| --- | --- |
+| `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | Maximum number of output tokens per response |
+| `DISABLE_INTERLEAVED_THINKING` | Set to `1` to disable interleaved thinking mode |
+| `CLAUDE_CODE_USE_BEDROCK` | Set to `1` to use AWS Bedrock as the API provider |
+| `CLAUDE_CODE_USE_VERTEX` | Set to `1` to use GCP Vertex AI as the API provider |
+
+---
+
+## CLAUDE.md files
+
+`CLAUDE.md` is a plain Markdown file that Claude Code reads as persistent context. It is not a configuration file—it is instructional text that Claude receives at the start of every session, similar to a system prompt.
+
+**Example `CLAUDE.md`:**
+
+```markdown
+# Project conventions
+
+- Use TypeScript strict mode throughout
+- Run `npm test` before every commit
+- All new functions require JSDoc comments
+
+## Architecture
+
+This project uses a hexagonal architecture. Business logic lives in `src/domain/`.
+External integrations go in `src/adapters/`.
+```
+
+Both global (`~/.claude/CLAUDE.md`) and project-level (`CLAUDE.md`) files are loaded and concatenated when a session starts.
+
+---
+
+## Enterprise policy settings (MDM)
+
+In managed environments, administrators can push Claude Code policy settings using **Mobile Device Management (MDM)**. MDM-managed settings override user preferences and cannot be changed from within Claude Code.
+
+Policy settings cover:
+
+- Approved API providers and base URLs
+- Allowed and blocked tool categories
+- Required authentication methods
+
+Contact your IT administrator for details on what policies are enforced in your organization.

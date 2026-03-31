@@ -1,0 +1,181 @@
+---
+title: "Permissions"
+description: "How Claude Code controls which tools can run, when to prompt, and how to configure automatic approval policies."
+---
+
+## Permission modes
+
+Claude Code operates in one of five permission modes. The active mode determines whether Claude Code prompts before executing potentially dangerous operations.
+
+<AccordionGroup>
+  <Accordion title="default">
+    The standard interactive mode. Claude Code prompts for approval before running operations that could be destructive or irreversible — shell commands, file writes, web requests, and similar actions.
+
+    Read-only operations (file reads, directory listings, searches) are allowed without prompting.
+  </Accordion>
+
+  <Accordion title="plan">
+    Plan mode shows a structured plan of what Claude Code intends to do before executing any tools. No tools run until you approve the plan.
+
+    The model can also enter plan mode autonomously via `EnterPlanModeTool`.
+  </Accordion>
+
+  <Accordion title="acceptEdits">
+    Auto-approves file edit operations (create, write, edit) within the working directory, while still prompting for shell commands and other potentially dangerous actions.
+
+    Useful when you want Claude Code to work through file changes without repeated prompts but still want oversight of command execution.
+  </Accordion>
+
+  <Accordion title="dontAsk">
+    Skips interactive prompts for most tool operations. Similar to `bypassPermissions` but retains certain safety checks. Suitable for non-interactive automation scenarios.
+  </Accordion>
+
+  <Accordion title="bypassPermissions">
+    Skips all permission prompts. Every tool call is approved automatically without any user confirmation.
+
+    <Warning>
+      `bypassPermissions` mode removes all interactive safeguards. Only use this mode in sandboxed or fully trusted environments — for example, inside a container with no access to sensitive data or external networks. Any tool the model requests, including shell commands with irreversible effects, will execute without confirmation.
+    </Warning>
+  </Accordion>
+</AccordionGroup>
+
+## Setting the permission mode
+
+Pass flags when starting Claude Code to control permissions:
+
+```bash
+# Default mode (prompts for dangerous operations)
+claude
+
+# Bypass all permission checks (use with caution)
+claude --dangerously-skip-permissions
+
+# Set a specific permission mode
+claude --permission-mode acceptEdits
+claude --permission-mode plan
+claude --permission-mode dontAsk
+```
+
+In non-interactive (`-p`) mode, you can also pass `--permission-mode` to control how tools are approved during headless execution:
+
+```bash
+claude -p "Run the test suite" --permission-mode acceptEdits
+```
+
+## Permission dialogs
+
+When Claude Code needs approval in `default` mode, it displays a permission dialog in the terminal showing:
+
+- The tool name and a description of what it will do
+- The exact input (command, file path, etc.)
+- The reason approval is required (mode, rule match, safety check, or hook decision)
+
+You can respond with:
+
+| Response | Effect |
+|---|---|
+| `y` / Enter | Allow this one invocation |
+| `n` | Deny this invocation |
+| `always allow` | Add an always-allow rule for this tool or command prefix |
+| `always deny` | Add an always-deny rule for this tool or command prefix |
+
+## Always allow and always deny rules
+
+You can configure persistent per-tool rules so Claude Code never prompts for certain operations. Rules are stored in your project settings (`.claude/settings.json`) or user settings (`~/.claude/settings.json`).
+
+Rule syntax: `ToolName(prefix:value)` for content-specific rules, or just `ToolName` to cover all invocations of a tool.
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "FileRead",
+      "GlobTool"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(curl * | bash:*)"
+    ]
+  }
+}
+```
+
+Rules are evaluated in order: deny rules take priority over allow rules. The permission system checks rules in this order:
+
+1. Always-deny rules (deny → block immediately)
+2. Always-ask rules (ask → show dialog even in permissive modes)
+3. Tool-specific `checkPermissions` (tool's own safety logic)
+4. Always-allow rules (allow → skip dialog)
+5. Mode-level decision (default, plan, acceptEdits, bypassPermissions)
+
+## Hook-based permissions
+
+The hooks system lets you plug external scripts into the permission pipeline. A `PermissionRequest` hook runs before Claude Code shows the permission dialog (or auto-approves). The hook can return `allow`, `deny`, or pass through to the normal flow.
+
+Hooks are configured in `.claude/hooks.json`:
+
+```json
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/my-approval-script.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The hook script receives a JSON payload on stdin describing the tool call and must exit with a structured JSON response indicating the decision. Hook-based decisions are recorded alongside classifier and rule-based decisions in analytics.
+
+See the hooks documentation for the full payload schema and exit code conventions.
+
+## Auto-mode classifier
+
+When `auto` mode is active (internal builds with the `TRANSCRIPT_CLASSIFIER` feature flag), Claude Code uses a transcript-based safety classifier instead of prompting the user.
+
+The classifier:
+
+1. Reads the full conversation transcript
+2. Formats the pending tool call as an action description
+3. Calls a secondary Claude model to decide whether the action is safe
+4. Returns `allow` or `deny` with a reason
+
+Fast-path allowlists avoid the classifier API call for operations that are always safe (read-only tools, file edits within the working directory that would be allowed in `acceptEdits` mode).
+
+If the classifier is unavailable or the transcript exceeds its context window, Claude Code falls back to normal prompting so you retain control.
+
+Consecutive classifier denials trigger a fallback to interactive prompting after a configurable threshold, surfacing the classifier's reason so you can review.
+
+## Sandbox
+
+`BashTool` supports OS-level sandboxing via `utils/sandbox/`. When sandboxing is enabled, shell commands run inside a restricted execution environment that limits filesystem and network access.
+
+The sandbox adapter (`sandbox-adapter.ts`) selects the appropriate backend for the current OS. Sandboxed commands that would otherwise require approval can be auto-allowed when the `autoAllowBashIfSandboxed` option is on.
+
+Sandboxing does not apply to commands that explicitly opt out via `dangerouslyDisableSandbox`.
+
+## Workspace trust
+
+On the first run in a new directory, Claude Code shows a workspace trust dialog asking whether you trust the project. This prevents Claude Code from reading project-specific configuration (`.claude/settings.json`, `CLAUDE.md`) in untrusted directories.
+
+The trust decision is persisted and can be revoked via `/config`.
+
+## Safety checks
+
+Certain paths are protected regardless of the active permission mode or bypass flags. Claude Code will always prompt before modifying:
+
+- `.git/` — git repository internals
+- `.claude/` — Claude Code configuration
+- `.vscode/`, `.idea/` — IDE configuration
+- Shell configuration files (`.bashrc`, `.zshrc`, `.profile`, etc.)
+
+These safety checks use `decisionReason.type === 'safetyCheck'` and cannot be suppressed by `bypassPermissions` mode, always-allow rules, or `PreToolUse` hooks.

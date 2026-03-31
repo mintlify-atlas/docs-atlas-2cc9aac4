@@ -1,0 +1,125 @@
+---
+title: 'SDK / headless mode'
+description: 'Run Claude Code non-interactively for scripting, CI/CD pipelines, and programmatic integration using the headless SDK mode.'
+---
+
+Claude Code supports two modes of operation:
+
+| Mode | Description |
+|---|---|
+| **Interactive REPL** | Default mode. Full terminal UI with message history, status bar, and keyboard shortcuts. |
+| **SDK / headless** | Non-interactive mode. No UI. Accepts a prompt, runs the agent loop, and writes structured output to stdout. |
+
+Headless mode is designed for scripting, CI/CD pipelines, editor integrations, and any context where a human is not directly driving the session.
+
+## SDK entrypoint
+
+The SDK surface lives in `entrypoints/sdk/` and consists of three files:
+
+| File | Purpose |
+|---|---|
+| `coreTypes.ts` | Core TypeScript types for SDK input and output |
+| `coreSchemas.ts` | Zod schemas for validating SDK messages |
+| `controlSchemas.ts` | Schemas for control messages (abort, status updates) |
+
+The `QueryEngine` class (`QueryEngine.ts`) is the headless query engine that drives the agent loop without any UI rendering. It accepts messages, runs tool calls, and emits structured output events.
+
+## CLI flags for non-interactive use
+
+### `-p` / `--print`
+
+Runs Claude Code in print mode. Claude processes the prompt, executes any needed tools, and exits. No interactive input is read from stdin.
+
+```bash
+claude -p "Summarize the changes in the last five commits"
+```
+
+### `--output-format`
+
+Controls the format of Claude's output.
+
+<Tabs>
+  <Tab title="json">
+    Emits a single JSON object after the agent loop completes. Contains the final assistant message, token usage, cost, and session metadata.
+
+    ```bash
+    claude -p "Run all tests and fix any failures" --output-format json
+    ```
+
+    Example output:
+
+    ```json
+    {
+      "type": "result",
+      "subtype": "success",
+      "result": "All 42 tests pass.",
+      "session_id": "sess_01abc...",
+      "cost_usd": 0.0031,
+      "usage": {
+        "input_tokens": 1204,
+        "output_tokens": 318,
+        "cache_read_input_tokens": 890,
+        "cache_creation_input_tokens": 0
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="stream-json">
+    Emits one JSON object per line as events are produced. Useful for real-time progress reporting.
+
+    ```bash
+    claude -p "Refactor the auth module" --output-format stream-json
+    ```
+
+    Each line is a self-contained JSON event describing a message, tool call, tool result, or status update.
+  </Tab>
+</Tabs>
+
+### `--input-format stream-json`
+
+Accepts streaming JSON input on stdin instead of a single prompt string. Each line must be a valid JSON message. This lets you pipe structured input into Claude Code from another process.
+
+```bash
+echo '{"type":"user","message":"List all TODO comments"}' | \
+  claude --input-format stream-json --output-format stream-json
+```
+
+## Running Claude Code in a CI/CD pipeline
+
+The `-p` flag combined with `--output-format json` makes Claude Code straightforward to embed in automated pipelines:
+
+```bash
+claude -p "Run all tests and fix any failures" --output-format json
+```
+
+Parse the JSON result in your pipeline script to check for success, extract the response text, or record token costs.
+
+```bash
+result=$(claude -p "Check for security issues in src/" --output-format json)
+status=$(echo "$result" | jq -r '.subtype')
+
+if [ "$status" != "success" ]; then
+  echo "Claude Code reported an error"
+  exit 1
+fi
+```
+
+## MCP server mode
+
+Claude Code can act as a Model Context Protocol (MCP) server, exposing its tools and agent capabilities to any MCP-compatible client:
+
+```bash
+claude --mcp-server
+```
+
+The MCP entrypoint is defined in `entrypoints/mcp.ts`. In this mode Claude Code listens for MCP requests on stdin/stdout and responds with MCP-formatted messages. No interactive UI is started.
+
+## Disabling animations
+
+In headless environments the spinner and other animations are suppressed automatically. You can also force this explicitly:
+
+```bash
+CLAUDE_CODE_DISABLE_NONINTERACTIVE_ANIMATIONS=1 claude -p "..."
+```
+
+This is useful when Claude Code's output is captured by a logging system that does not handle ANSI escape sequences well.

@@ -1,0 +1,140 @@
+---
+title: "Search tools"
+description: "Find files by name and search file contents with regex."
+---
+
+Two search tools cover the most common discovery tasks: GlobTool finds files by name pattern, and GrepTool searches file contents using regular expressions powered by [ripgrep](https://github.com/BurntSushi/ripgrep).
+
+## GrepTool
+
+Searches file contents using ripgrep and returns results sorted by the modification time of matching files (most recently modified first). Supports full regex syntax, context lines, file type filters, and multiple output modes.
+
+### Parameters
+
+<ParamField path="pattern" type="string" required>
+  The regular expression to search for in file contents. Supports full regex syntax (e.g. `"log.*Error"`, `"function\s+\w+"`).
+</ParamField>
+
+<ParamField path="path" type="string">
+  File or directory to search. Defaults to the current working directory.
+</ParamField>
+
+<ParamField path="glob" type="string">
+  Glob pattern to filter which files are searched (e.g. `"*.ts"`, `"*.{ts,tsx}"`).
+</ParamField>
+
+<ParamField path="output_mode" type="string">
+  Controls the format of results:
+  - `"files_with_matches"` (default) — return the paths of files that contain at least one match
+  - `"content"` — return the matching lines with optional context
+  - `"count"` — return match counts per file
+</ParamField>
+
+<ParamField path="context" type="number">
+  Number of lines to show before and after each match (equivalent to `rg -C`). Only used when `output_mode` is `"content"`.
+</ParamField>
+
+<ParamField path="-B" type="number">
+  Lines of context before each match (equivalent to `rg -B`). Only used when `output_mode` is `"content"`.
+</ParamField>
+
+<ParamField path="-A" type="number">
+  Lines of context after each match (equivalent to `rg -A`). Only used when `output_mode` is `"content"`.
+</ParamField>
+
+<ParamField path="-i" type="boolean">
+  Case-insensitive search. Defaults to `false`.
+</ParamField>
+
+<ParamField path="-n" type="boolean">
+  Include line numbers in `"content"` mode output. Defaults to `true`.
+</ParamField>
+
+<ParamField path="type" type="string">
+  Restrict search to a ripgrep file type (e.g. `"ts"`, `"py"`, `"go"`). More efficient than `glob` for standard language types.
+</ParamField>
+
+<ParamField path="head_limit" type="number">
+  Maximum number of results to return (equivalent to `| head -N`). Defaults to `250`. Pass `0` for unlimited results.
+</ParamField>
+
+<ParamField path="offset" type="number">
+  Skip the first N results before applying `head_limit` (equivalent to `| tail -n +N`). Defaults to `0`.
+</ParamField>
+
+<ParamField path="multiline" type="boolean">
+  Enable multiline mode so `.` matches newlines and patterns can span lines. Defaults to `false`.
+</ParamField>
+
+### Returns
+
+Depends on `output_mode`:
+- `"files_with_matches"`: list of relative file paths with at least one match
+- `"content"`: matching lines (and context lines if requested) as a string
+- `"count"`: per-file match counts
+
+### Examples
+
+Find all TypeScript files that export a function named `useAuth`:
+
+```json
+{
+  "pattern": "export function useAuth",
+  "glob": "*.ts",
+  "output_mode": "files_with_matches"
+}
+```
+
+Show matching lines with 2 lines of context around each match:
+
+```json
+{
+  "pattern": "throw new Error",
+  "path": "/home/user/project/src",
+  "output_mode": "content",
+  "context": 2
+}
+```
+
+---
+
+## GlobTool
+
+Finds files by name using glob patterns. Results are sorted by modification time (most recently modified first).
+
+### Parameters
+
+<ParamField path="pattern" type="string" required>
+  The glob pattern to match file paths against (e.g. `"**/*.ts"`, `"src/**/*.test.tsx"`, `"*.config.{js,ts}"`).
+</ParamField>
+
+<ParamField path="path" type="string">
+  The directory to search in. Defaults to the current working directory. Must be a valid directory path if provided—do not pass `"undefined"` or `"null"`.
+</ParamField>
+
+### Returns
+
+An array of matching file paths (relative to the working directory), the total count, whether results were truncated (limited to 100 files by default), and the duration of the search in milliseconds.
+
+### Examples
+
+Find all test files in a project:
+
+```json
+{
+  "pattern": "**/*.test.ts"
+}
+```
+
+Find all configuration files under a specific directory:
+
+```json
+{
+  "pattern": "*.config.{js,ts,mjs}",
+  "path": "/home/user/project"
+}
+```
+
+<Tip>
+  Use GlobTool when you know the file name or extension you are looking for. Use GrepTool when you need to find files based on their content. For large projects, GlobTool with a specific pattern is faster than a broad GrepTool search.
+</Tip>

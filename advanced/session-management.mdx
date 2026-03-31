@@ -1,0 +1,113 @@
+---
+title: 'Session management'
+description: 'Resume, branch, search, and transfer Claude Code sessions. Understand how conversations are persisted and managed across machines.'
+---
+
+Claude Code persists every conversation as a JSONL transcript on disk. This gives you a complete, searchable history of your work and lets you resume, branch, export, or transfer sessions at any time.
+
+## Session storage
+
+Sessions are stored in `~/.claude/sessions/` as JSONL files. Each line in the file is a serialized message — assistant turns, user turns, tool calls, file snapshots, and metadata are all recorded in order.
+
+```
+~/.claude/sessions/
+├── <session-id-1>.jsonl
+├── <session-id-2>.jsonl
+└── ...
+```
+
+## Resuming a session
+
+To pick up where you left off, use the `--resume` flag when starting Claude Code, or run `/resume` inside an active session to switch to a previous one.
+
+```bash
+claude --resume
+```
+
+Claude displays a list of recent sessions ordered by last activity. Select one to restore the full conversation history and continue from that point.
+
+## Listing sessions
+
+The `/session` command shows your recent sessions with their titles, timestamps, and working directories. Use it to find and switch between sessions without leaving the terminal.
+
+```
+/session
+```
+
+## Searching sessions
+
+Claude Code can search your session history by title, content, and metadata. This is useful when you remember working on something but can't recall which session it was in.
+
+```
+/session search <query>
+```
+
+## Branching sessions
+
+Fork any session at its current point with `/branch`. The original session is preserved unchanged; the new branch starts as an identical copy and diverges from that point forward.
+
+```
+/branch
+```
+
+Branching is useful when you want to explore an alternative approach without losing your current state.
+
+## Background sessions
+
+You can run multiple Claude Code sessions concurrently. Each session operates independently with its own conversation history, tool permissions, and working directory. Use `/session` to switch between active background sessions.
+
+## File history and undo/redo
+
+Claude Code takes file snapshots before each destructive edit. These snapshots are stored as `FileHistorySnapshotMessage` entries in the session JSONL. If a change produces an unexpected result, you can undo it without leaving Claude Code.
+
+```
+/undo
+```
+
+## Session teleportation
+
+The `/teleport` command transfers a session from one machine to another using a Git-based serialization mechanism (`utils/teleport.tsx`).
+
+<Steps>
+  <Step title="Initiate teleport">
+    Run `/teleport` on the source machine. Claude Code serializes the session state and uploads it using your claude.ai OAuth credentials.
+  </Step>
+  <Step title="Create a Git bundle">
+    Claude packages the relevant Git branch state into a bundle alongside the conversation transcript.
+  </Step>
+  <Step title="Resume on the target machine">
+    On the destination machine, run `claude --resume` and select the teleported session. Claude checks out the correct branch and restores the conversation.
+  </Step>
+</Steps>
+
+<Note>
+  Teleportation requires an active claude.ai OAuth session on both machines. The feature uses `checkGate` to verify access before proceeding.
+</Note>
+
+## Session titles
+
+Claude Code automatically generates a title for each session based on the opening messages. To rename a session manually:
+
+```
+/rename <new title>
+```
+
+## Exporting sessions
+
+Export the current session transcript to a file with `/export`. The output is a human-readable version of the conversation, suitable for sharing or archiving.
+
+```
+/export
+```
+
+## Cost tracking
+
+The `/cost` command displays token usage and estimated USD spend for the current session, broken down by model and token type (input, output, cache read, cache creation).
+
+```
+/cost
+```
+
+<Tip>
+  Cost data is persisted in the session JSONL and restored when you resume a session, so totals accumulate correctly across multiple sittings.
+</Tip>

@@ -1,0 +1,186 @@
+---
+title: "Agent & task tools"
+description: "Spawn sub-agents, manage background tasks, and coordinate multi-agent workflows."
+---
+
+Claude Code supports multi-agent workflows where the main session can spawn and coordinate independent agents. These tools cover spawning sub-agents, managing long-running background tasks, organizing agents into named teams, and sending messages between agents.
+
+## AgentTool
+
+Spawns an independent sub-agent to handle a task autonomously. The sub-agent runs with its own context, tool access, and (optionally) its own working directory or isolated git worktree. The calling agent waits for the sub-agent to complete and receives its output.
+
+### Parameters
+
+<ParamField path="description" type="string" required>
+  A short (3–5 word) description of the task. Used in the UI and for logging.
+</ParamField>
+
+<ParamField path="prompt" type="string" required>
+  Detailed instructions for the sub-agent. Be explicit about what the agent should do, what files or directories to work in, and what output is expected.
+</ParamField>
+
+<ParamField path="subagent_type" type="string">
+  The name of a specialized agent definition to use. If omitted, a general-purpose agent is spawned.
+</ParamField>
+
+<ParamField path="model" type="string">
+  Optional model override: `"sonnet"`, `"opus"`, or `"haiku"`. Overrides the agent definition's configured model. If omitted, the agent inherits the parent's model.
+</ParamField>
+
+<ParamField path="run_in_background" type="boolean">
+  When `true`, the sub-agent runs asynchronously and the parent agent continues immediately. The parent is notified when the background agent completes.
+</ParamField>
+
+<ParamField path="isolation" type="string">
+  Isolation mode for the sub-agent:
+  - `"worktree"` — creates a temporary git worktree so the agent works on an isolated copy of the repository
+</ParamField>
+
+<ParamField path="cwd" type="string">
+  Absolute path to use as the working directory for the sub-agent. Overrides all filesystem and shell operations within the agent. Mutually exclusive with `isolation: "worktree"`.
+</ParamField>
+
+<ParamField path="name" type="string">
+  A name for the spawned agent. Makes the agent addressable via SendMessageTool while it is running.
+</ParamField>
+
+### Returns
+
+The sub-agent's final output as a string when it completes successfully.
+
+### Example
+
+Spawning an agent to write tests for a module:
+
+```json
+{
+  "description": "Write unit tests",
+  "prompt": "Write comprehensive unit tests for /home/user/project/src/auth.ts. Cover all exported functions. Place tests in /home/user/project/src/auth.test.ts.",
+  "model": "sonnet"
+}
+```
+
+<Note>
+  Sub-agents have access to the same built-in tools as the parent agent. They do not share conversation history with the parent—each sub-agent starts with a fresh context and the instructions in `prompt`.
+</Note>
+
+---
+
+## Task management tools
+
+Background tasks are long-running agent operations that continue independently while the main session proceeds. These tools let you create, monitor, update, and stop background tasks.
+
+<AccordionGroup>
+  <Accordion title="TaskCreateTool">
+    Creates a background task that runs asynchronously. The task is identified by a name you provide.
+
+    **Parameters**
+    - `name` (string, required) — a unique identifier for the task
+    - `prompt` (string, required) — instructions for the task agent
+
+    **Returns** the task ID and initial status.
+  </Accordion>
+
+  <Accordion title="TaskListTool">
+    Lists all active and recently completed background tasks in the current session, including their names, IDs, and current status.
+
+    **Parameters** — none required.
+
+    **Returns** an array of task summaries.
+  </Accordion>
+
+  <Accordion title="TaskGetTool">
+    Retrieves the current output and status of a specific background task.
+
+    **Parameters**
+    - `task_id` (string, required) — the ID of the task to query
+
+    **Returns** the task output collected so far, current status, and whether the task has completed.
+  </Accordion>
+
+  <Accordion title="TaskUpdateTool">
+    Sends updated instructions to a running background task, allowing you to redirect or refine what it is working on.
+
+    **Parameters**
+    - `task_id` (string, required) — the ID of the task to update
+    - `prompt` (string, required) — updated instructions for the task
+
+    **Returns** confirmation that the update was delivered.
+  </Accordion>
+
+  <Accordion title="TaskStopTool">
+    Stops a running background task.
+
+    **Parameters**
+    - `task_id` (string, required) — the ID of the task to stop
+
+    **Returns** confirmation that the task was stopped.
+  </Accordion>
+
+  <Accordion title="TaskOutputTool">
+    Streams or retrieves the output from a background task.
+
+    **Parameters**
+    - `task_id` (string, required) — the ID of the task
+
+    **Returns** the task's output as a string.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Team tools
+
+Agent teams are named groups of agents that can be created and disbanded as a unit.
+
+<AccordionGroup>
+  <Accordion title="TeamCreateTool">
+    Creates a named team and spawns the agents that make it up. Agents in a team can address each other by name using SendMessageTool.
+
+    **Parameters**
+    - `team_name` (string, required) — a unique name for the team
+    - `agents` (array, required) — definitions of each agent in the team, including their names, roles, and prompts
+
+    **Returns** the team ID and a list of the spawned agent IDs.
+  </Accordion>
+
+  <Accordion title="TeamDeleteTool">
+    Disbands an agent team, stopping all agents that are still running as part of it.
+
+    **Parameters**
+    - `team_name` (string, required) — the name of the team to disband
+
+    **Returns** confirmation that the team was deleted.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## SendMessageTool
+
+Sends a message to another agent's mailbox. Used for coordination between concurrently running agents.
+
+### Parameters
+
+<ParamField path="agent_id" type="string" required>
+  The target agent's identifier or name (as set when spawning the agent with AgentTool's `name` parameter).
+</ParamField>
+
+<ParamField path="message" type="string" required>
+  The message content to deliver to the target agent.
+</ParamField>
+
+### Returns
+
+Confirmation that the message was delivered to the agent's mailbox.
+
+### Example
+
+Notifying a named background agent that a prerequisite task has finished:
+
+```json
+{
+  "agent_id": "test-runner",
+  "message": "The build has completed successfully. You can now run the integration tests."
+}
+```

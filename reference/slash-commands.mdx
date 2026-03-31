@@ -1,0 +1,87 @@
+---
+title: Slash Commands
+description: Complete reference for Claude Code's 100+ slash commands.
+---
+
+Type `/` in the REPL to open the command palette. An autocomplete menu appears as you type, filtering commands by name and showing a short description for each. Press `Tab` or `Enter` to accept a suggestion, or continue typing to narrow the list.
+
+<AccordionGroup>
+
+  <Accordion title="Session & Navigation">
+
+    | Command | Description |
+    |---|---|
+    | `/help` | Show the help overlay with available commands and keybindings |
+    | `/exit` | Exit Claude Code and return to the shell |
+    | `/clear` | Clear the current conversation history and start fresh |
+    | `/resume` | Resume a previous session from the session picker |
+    | `/session` | View and manage the current session (rename, branch, export) |
+    | `/branch` | Branch the current session into a new independent conversation |
+    | `/rename` | Rename the current session |
+    | `/export` | Export the session transcript to a file |
+
+  </Accordion>
+
+  <Accordion title="Code & Git">
+
+    | Command | Description |
+    |---|---|
+    | `/init` | Initialize a project — creates a `CLAUDE.md` file with project context |
+    | `/commit` | Generate and create a git commit for staged changes |
+    | `/review` | Run an AI code review on the current diff or specified files |
+    | `/diff` | Show the current git diff in the conversation |
+    | `/status` | Show `git status` output in the conversation |
+    | `/compact` | Compact the conversation context to reduce token usage |
+    | `/summary` | Generate a summary of the current session |
+
+  </Accordion>
+
+  <Accordion title="Model & Settings">
+
+    | Command | Description |
+    |---|---|
+    | `/model` | Switch the active AI model |
+    | `/theme` | Change the UI color theme |
+    | `/output-style` | Change how Claude formats its responses |
+    | `/config` | View or edit Claude Code configuration |
+    | `/keybindings` | Open `keybindings.json` in your editor to customize shortcuts |
+    | `/vim` | Toggle vim mode for the prompt input |
+
+  </Accordion>
+
+  <Accordion title="Tools & Integrations">
+
+    | Command | Description |
+    |---|---|
+    | `/mcp` | Manage MCP (Model Context Protocol) servers — list, add, remove, and authenticate |
+    | `/plugin` | Manage plugins — browse, enable, disable, and remove installed plugins |
+    | `/install` | Install a plugin by name or path |
+    | `/skills` | View and manage skills available in the current session |
+    | `/agents` | View and manage sub-agents in the current session |
+    | `/hooks` | Manage lifecycle hooks for tool execution events |
+    | `/memory` | View and manage persistent memory attached to the session |
+
+  </Accordion>
+
+  <Accordion title="Utilities">
+
+    | Command | Description |
+    |---|---|
+    | `/doctor` | Run diagnostics — checks configuration, authentication, and connectivity |
+    | `/cost` | Show token usage and estimated cost for the current session |
+    | `/usage` | Show detailed token usage statistics broken down by model |
+    | `/version` | Show the installed Claude Code version |
+    | `/login` | Authenticate with Anthropic (OAuth or API key) |
+    | `/logout` | Sign out and clear stored credentials |
+    | `/feedback` | Send feedback to Anthropic |
+    | `/release-notes` | Show the changelog for recent versions |
+    | `/ultraplan` | Activate advanced multi-step planning mode (when enabled) |
+    | `/teleport` | Sync the current session to another machine via the Teleport system |
+
+  </Accordion>
+
+</AccordionGroup>
+
+<Note>
+  The full command list may vary depending on which features are enabled in your build. Commands gated behind feature flags (such as `/ultraplan` and `/teleport`) only appear when the corresponding feature is active.
+</Note>

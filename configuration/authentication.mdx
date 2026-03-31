@@ -1,0 +1,160 @@
+---
+title: 'Authentication'
+description: 'Connect Claude Code to Anthropic or a compatible API provider using OAuth, API keys, AWS Bedrock, or GCP Vertex AI.'
+---
+
+Claude Code supports four authentication methods. Choose the one that matches your setup.
+
+## Authentication methods
+
+<Tabs>
+  <Tab title="OAuth (claude.ai)">
+    The default method for personal use. Claude Code opens a browser window and authenticates through your claude.ai account.
+
+    <Steps>
+      <Step title="Start Claude Code">
+        Run `claude` in your terminal. If you are not authenticated, the login prompt appears automatically.
+      </Step>
+      <Step title="Complete browser login">
+        A browser window opens to claude.ai. Sign in with your Anthropic account and authorize Claude Code.
+      </Step>
+      <Step title="Return to terminal">
+        After authorization, Claude Code receives your credentials and the session begins.
+      </Step>
+    </Steps>
+
+    To log in manually at any time, run:
+
+    ```bash
+    claude /login
+    ```
+  </Tab>
+
+  <Tab title="API key">
+    Use an API key from [console.anthropic.com](https://console.anthropic.com) when you need programmatic access or want to skip the browser flow.
+
+    Set the environment variable before running Claude Code:
+
+    ```bash
+    export ANTHROPIC_API_KEY=sk-ant-...
+    claude
+    ```
+
+    On macOS, Claude Code stores API keys securely in **macOS Keychain** so you do not need to set the variable in every shell session after the first login.
+
+    <Note>
+      Environment variable keys take precedence over keys stored in the Keychain.
+    </Note>
+  </Tab>
+
+  <Tab title="AWS Bedrock">
+    Route requests through Amazon Bedrock using your AWS credentials.
+
+    <Steps>
+      <Step title="Configure AWS credentials">
+        Set up valid AWS credentials with Bedrock permissions. Claude Code uses `sts:GetCallerIdentity` to validate them.
+
+        ```bash
+        export AWS_ACCESS_KEY_ID=...
+        export AWS_SECRET_ACCESS_KEY=...
+        export AWS_SESSION_TOKEN=...   # if using temporary credentials
+        ```
+
+        Or configure a profile in `~/.aws/credentials` and set `AWS_PROFILE`.
+      </Step>
+      <Step title="Set the Bedrock base URL">
+        ```bash
+        export ANTHROPIC_BEDROCK_BASE_URL=https://bedrock-runtime.<region>.amazonaws.com
+        ```
+      </Step>
+      <Step title="Start Claude Code">
+        ```bash
+        claude
+        ```
+      </Step>
+    </Steps>
+
+    Credentials are refreshed automatically via AWS STS when they expire.
+  </Tab>
+
+  <Tab title="GCP Vertex AI">
+    Route requests through Google Cloud Vertex AI using Application Default Credentials.
+
+    <Steps>
+      <Step title="Authenticate with Google Cloud">
+        ```bash
+        gcloud auth application-default login
+        ```
+      </Step>
+      <Step title="Set the Vertex AI base URL">
+        ```bash
+        export ANTHROPIC_VERTEX_BASE_URL=https://<region>-aiplatform.googleapis.com
+        ```
+      </Step>
+      <Step title="Start Claude Code">
+        ```bash
+        claude
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+---
+
+## macOS Keychain storage
+
+On macOS, Claude Code automatically stores API keys in the system Keychain after the first successful authentication. You do not need to re-export `ANTHROPIC_API_KEY` in new terminal sessions—Claude Code retrieves the key from the Keychain on startup.
+
+To remove a stored key, log out:
+
+```bash
+claude /logout
+```
+
+---
+
+## API key helper
+
+An API key helper is a custom script or command that Claude Code calls on demand to retrieve an API key. This is useful in environments where keys rotate frequently or are managed by a secrets manager.
+
+Set `ANTHROPIC_API_KEY_HELPER` to the path or command that prints a valid API key to stdout:
+
+```bash
+export ANTHROPIC_API_KEY_HELPER="/usr/local/bin/get-my-api-key"
+```
+
+Claude Code calls the helper at startup and caches the result for five minutes. The helper must exit with code `0` and print only the key on stdout.
+
+---
+
+## Login and logout
+
+| Command | Description |
+| --- | --- |
+| `claude /login` | Trigger the authentication flow manually |
+| `claude /logout` | Clear stored credentials (Keychain, OAuth tokens, and config) |
+
+---
+
+## Checking authentication status
+
+Run the diagnostics command to see which authentication method is active and whether credentials are valid:
+
+```bash
+claude /doctor
+```
+
+The output shows your current auth source, account details, and any configuration issues.
+
+---
+
+## Environment variables
+
+| Variable | Purpose |
+| --- | --- |
+| `ANTHROPIC_API_KEY` | Direct API key; overrides Keychain and OAuth |
+| `ANTHROPIC_BASE_URL` | Override the default Anthropic API endpoint |
+| `ANTHROPIC_BEDROCK_BASE_URL` | Bedrock endpoint for AWS authentication |
+| `ANTHROPIC_VERTEX_BASE_URL` | Vertex AI endpoint for GCP authentication |
+| `ANTHROPIC_API_KEY_HELPER` | Path to a script that returns an API key on stdout |

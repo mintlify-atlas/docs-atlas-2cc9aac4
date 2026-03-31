@@ -1,0 +1,115 @@
+---
+title: "Multi-agent orchestration"
+description: "Spawn and coordinate multiple AI agents to parallelize complex tasks using Claude Code's built-in multi-agent system."
+---
+
+Claude Code can spawn, coordinate, and communicate with multiple AI agents simultaneously. This lets you distribute work across parallel agents, delegate subtasks to specialized workers, and build autonomous pipelines that operate without continuous human input.
+
+## Agent types
+
+<AccordionGroup>
+  <Accordion title="Sub-agents via AgentTool">
+    The simplest form of multi-agent work. Claude spawns a sub-agent inline during a conversation to handle a discrete task. The sub-agent runs to completion and returns its result before the parent continues.
+
+    Sub-agents are created automatically when Claude uses the `AgentTool` internally — you don't need to configure anything.
+  </Accordion>
+
+  <Accordion title="Teams via TeamCreateTool">
+    Named teams of agents that collaborate on a shared goal. A team consists of a lead and one or more teammates, each with their own system prompt and role. Teams are well-suited for tasks that benefit from role separation — for example, a researcher agent paired with an implementer agent.
+  </Accordion>
+
+  <Accordion title="Coordinator mode">
+    An optional orchestration layer (enabled via the `COORDINATOR_MODE` feature flag) where a central coordinator agent delegates tasks to a pool of worker agents. The coordinator tracks task state, handles retries, and aggregates results. See [Enabling coordinator mode](#enabling-coordinator-mode) below.
+  </Accordion>
+
+  <Accordion title="Swarm mode">
+    Fully autonomous multi-agent networks defined in `utils/swarm/`. Swarms run agents in separate terminal panes using tmux or iTerm2 backends, enabling long-running parallel workloads that outlast a single conversation turn.
+  </Accordion>
+</AccordionGroup>
+
+## Creating custom agents
+
+Place agent definition files in `.claude/agents/` at the root of your project. Claude Code loads these automatically at startup.
+
+```
+.claude/
+└── agents/
+    ├── researcher.md
+    ├── reviewer.md
+    └── tester.md
+```
+
+Each agent definition file sets the agent's name, system prompt, and any tool restrictions. Claude references these definitions when spawning named agents with `AgentTool` or `TeamCreateTool`.
+
+## Inter-agent communication
+
+Agents communicate through a mailbox system using `SendMessageTool`. An agent sends a message to a named mailbox; the recipient agent polls or subscribes to that mailbox and processes incoming messages.
+
+```
+Agent A  ──SendMessageTool──▶  mailbox: "reviewer"  ──▶  Agent B
+```
+
+This decoupled design lets agents operate at different speeds and retry failed deliveries without blocking the sender.
+
+## Agent backends
+
+The swarm system supports three backends, chosen automatically based on the environment:
+
+| Backend | Description |
+|---|---|
+| **In-process** (`InProcessBackend`) | Agents run as lightweight threads inside the same Claude Code process. No extra terminal windows. Best for short-lived sub-tasks. |
+| **tmux** (`TmuxBackend`) | Each agent runs in a separate tmux pane. Agents are visible and can be inspected independently. Requires tmux. |
+| **iTerm2** (`ITermBackend`) | Each agent runs in a separate iTerm2 split pane. macOS only. Provides native terminal integration. |
+
+The backend is detected at runtime via `utils/swarm/backends/detection.ts`. You can override the teammate command with the `CLAUDE_CODE_TEAMMATE_COMMAND` environment variable.
+
+## Managing agents with /agents
+
+The `/agents` slash command lists all active agents, their statuses, and their assigned tasks. Use it to inspect running agents or terminate ones that are no longer needed.
+
+```
+/agents
+```
+
+## Spawning a sub-agent
+
+The following example asks Claude to spawn a parallel agent to run tests while the main agent continues implementing a feature:
+
+<CodeGroup>
+
+```text prompt
+Spawn a sub-agent to run the full test suite and report any failures.
+While it runs, continue implementing the caching layer in src/cache.ts.
+```
+
+```text agent response (example)
+Spawning sub-agent "test-runner" to execute: npm test
+Continuing with cache implementation...
+```
+
+</CodeGroup>
+
+## Enabling coordinator mode
+
+Coordinator mode is a feature-flagged capability (`COORDINATOR_MODE`) that activates a central orchestrator defined in `coordinator/coordinatorMode.ts`. When enabled, Claude acts as a coordinator that:
+
+1. Breaks the user's goal into discrete tasks
+2. Assigns each task to a worker agent
+3. Monitors task state and handles failures
+4. Aggregates results and reports back
+
+To enable coordinator mode in an internal or custom build, set the `COORDINATOR_MODE` feature flag to `true` in your Bun bundle configuration.
+
+## Task management tools
+
+Coordinator mode exposes a set of tools for managing tasks across agents:
+
+| Tool | Description |
+|---|---|
+| `TaskCreateTool` | Creates a new task and assigns it to an agent |
+| `TaskListTool` | Lists all tasks and their current statuses |
+| `TaskGetTool` | Retrieves details for a specific task |
+| `TaskUpdateTool` | Updates a task's status or metadata |
+| `TaskStopTool` | Cancels a running task |
+
+These tools give Claude a structured interface for tracking progress across distributed work, retrying failed tasks, and signaling completion.

@@ -1,0 +1,179 @@
+---
+title: "Tool System"
+description: "How Claude Code's 40+ built-in tools are defined, assembled, filtered, and executed."
+---
+
+## What tools are
+
+Tools are the actions Claude Code can take autonomously: reading files, running shell commands, searching codebases, spawning sub-agents, and more. The model requests a tool call; Claude Code checks permissions, executes the tool, and returns the result to the model.
+
+The tool interface is defined in `Tool.ts`. The full tool pool is assembled at runtime in `tools.ts`. Individual tool implementations live under `tools/`.
+
+## The Tool interface
+
+Every tool — built-in or from an MCP server — satisfies the `Tool<Input, Output>` generic type defined in `Tool.ts`:
+
+```typescript
+export type Tool<
+  Input extends AnyObject = AnyObject,
+  Output = unknown,
+  P extends ToolProgressData = ToolProgressData,
+> = {
+  readonly name: string
+  readonly inputSchema: Input              // Zod schema for input validation
+  readonly inputJSONSchema?: ToolInputJSONSchema  // Optional raw JSON Schema (MCP tools)
+  outputSchema?: z.ZodType<unknown>
+
+  // Core methods
+  call(
+    args: z.infer<Input>,
+    context: ToolUseContext,
+    canUseTool: CanUseToolFn,
+    parentMessage: AssistantMessage,
+    onProgress?: ToolCallProgress<P>,
+  ): Promise<ToolResult<Output>>
+
+  description(
+    input: z.infer<Input>,
+    options: { isNonInteractiveSession: boolean; toolPermissionContext: ToolPermissionContext; tools: Tools },
+  ): Promise<string>
+
+  checkPermissions(input: z.infer<Input>, context: ToolUseContext): Promise<PermissionResult>
+
+  isEnabled(): boolean
+  isReadOnly(input: z.infer<Input>): boolean
+  isConcurrencySafe(input: z.infer<Input>): boolean
+  isDestructive?(input: z.infer<Input>): boolean
+
+  maxResultSizeChars: number  // Results larger than this are written to disk
+  isMcp?: boolean
+  mcpInfo?: { serverName: string; toolName: string }
+}
+```
+
+Key points:
+
+- `inputSchema` is a **Zod schema**. Claude Code calls `tool.inputSchema.parse(input)` before every `checkPermissions` and `call` invocation to validate the model's arguments.
+- `maxResultSizeChars` controls when a result is too large to return inline. Results that exceed this limit are persisted to a temp file and Claude receives a path-based preview instead.
+- `isConcurrencySafe` determines whether the tool can run in parallel with other tools within the same model turn.
+- `isDestructive` is checked by the permission system to decide whether to prompt before execution.
+
+## Built-in tool categories
+
+<CardGroup cols={2}>
+  <Card title="File tools" icon="file">
+    Read, write, and edit files on disk.
+
+    - `FileReadTool` — reads files with optional line-range support
+    - `FileEditTool` — AI-powered targeted edits
+    - `FileWriteTool` — full file creation or overwrite
+  </Card>
+
+  <Card title="Shell tools" icon="terminal">
+    Execute commands in a shell process.
+
+    - `BashTool` — runs arbitrary shell commands (with sandbox support)
+    - `PowerShellTool` — Windows PowerShell execution (feature-flagged)
+  </Card>
+
+  <Card title="Search tools" icon="magnifying-glass">
+    Search file contents and directory trees.
+
+    - `GrepTool` — ripgrep-powered code search
+    - `GlobTool` — file pattern matching
+  </Card>
+
+  <Card title="Agent tools" icon="robot">
+    Spawn and communicate with sub-agents.
+
+    - `AgentTool` — spawns a sub-agent with its own query loop
+    - `TaskCreateTool` — creates background tasks
+    - `TeamCreateTool` — creates a named team of agents
+    - `SendMessageTool` — sends messages between agents (mailbox)
+  </Card>
+
+  <Card title="Web tools" icon="globe">
+    Access the internet.
+
+    - `WebSearchTool` — web search
+    - `WebFetchTool` — fetches and returns URL content
+  </Card>
+
+  <Card title="MCP tools" icon="plug">
+    Proxy tool calls to MCP servers.
+
+    - `MCPTool` — executes a tool on a connected MCP server
+    - `ListMcpResourcesTool` — lists available resources from MCP servers
+    - `ReadMcpResourceTool` — reads a specific MCP resource
+  </Card>
+
+  <Card title="Utility tools" icon="wrench">
+    Miscellaneous helpers.
+
+    - `TodoWriteTool` — manages a structured todo list
+    - `SleepTool` — timed delay (Kairos/proactive mode)
+    - `ScheduleCronTool` — creates, deletes, and lists cron triggers
+    - `SkillTool` — invokes a skill/workflow definition
+    - `NotebookEditTool` — edits Jupyter notebook cells
+    - `LSPTool` — queries the Language Server Protocol for diagnostics, definitions, and references
+  </Card>
+
+  <Card title="Plan mode tools" icon="list-check">
+    Control plan mode transitions.
+
+    - `EnterPlanModeTool` — switches the session to plan mode
+    - `ExitPlanModeV2Tool` — exits plan mode and resumes execution
+  </Card>
+</CardGroup>
+
+## Tool assembly (tools.ts)
+
+`tools.ts` exports a function that builds the active tool pool at session start. It applies several filters:
+
+1. **Feature flags** — tools gated behind `bun:bundle` feature flags (e.g. `SleepTool` requires `PROACTIVE` or `KAIROS`) are excluded from public builds via dead-code elimination.
+2. **Environment flags** — some tools are restricted to `USER_TYPE === 'ant'` (internal Anthropic builds).
+3. **Runtime capability checks** — `tool.isEnabled()` is called to exclude tools whose dependencies are not available (e.g. `LSPTool` when no LSP server is running).
+4. **Deny rules** — tools matched by an `alwaysDeny` permission rule are removed from the pool before the model sees them.
+
+```typescript
+import { toolMatchesName, type Tool, type Tools } from './Tool.js'
+import { AgentTool } from './tools/AgentTool/AgentTool.js'
+import { BashTool } from './tools/BashTool/BashTool.js'
+import { FileEditTool } from './tools/FileEditTool/FileEditTool.js'
+import { FileReadTool } from './tools/FileReadTool/FileReadTool.js'
+// ... 40+ imports
+```
+
+The assembled `Tools` array is passed into `ToolUseContext` and made available to every tool's `call()` and `checkPermissions()` methods.
+
+## Permission checking
+
+Before Claude Code calls a tool, the `useCanUseTool` hook runs the full permission pipeline (see [Permissions](/concepts/permissions)). The pipeline signature is:
+
+```typescript
+export type CanUseToolFn = (
+  tool: Tool,
+  input: { [key: string]: unknown },
+  context: ToolUseContext,
+  assistantMessage: AssistantMessage,
+  toolUseID: string,
+) => Promise<PermissionDecision>
+```
+
+The decision is one of `allow`, `deny`, or `ask` (which surfaces an interactive dialog in the REPL).
+
+## Tool result storage
+
+When a tool returns a result larger than `tool.maxResultSizeChars`, Claude Code writes the content to a temporary file and sends Claude a truncated preview with the file path. This prevents oversized tool results from consuming the context window.
+
+```typescript
+import { applyToolResultBudget } from './utils/toolResultStorage.js'
+```
+
+## MCP tools
+
+When an MCP server is connected, Claude Code dynamically creates `MCPTool` instances for each tool the server advertises. These tools proxy calls to the MCP server over the MCP protocol.
+
+MCP tools set `isMcp: true` and populate `mcpInfo.serverName` / `mcpInfo.toolName`. The permission system uses these fields for server-level allow/deny rules (e.g. the rule `mcp__my_server` covers all tools from `my_server`).
+
+To add MCP servers, configure them in your project's `.claude/settings.json` or via the `/mcp` slash command.

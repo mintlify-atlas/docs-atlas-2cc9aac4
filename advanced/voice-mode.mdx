@@ -1,0 +1,52 @@
+---
+title: "Voice mode"
+description: "Speak your prompts directly in the terminal using Claude Code's speech-to-text voice input mode."
+---
+
+Voice mode lets you dictate prompts to Claude Code without typing. Audio is transcribed locally and inserted into the standard prompt input, where you can review and edit it before submission.
+
+<Warning>
+  Voice mode is a feature-flagged capability (`VOICE_MODE`). It is available in internal Anthropic builds and may not be enabled in the public release of Claude Code.
+</Warning>
+
+## How it works
+
+Voice input is handled by three components working together:
+
+1. **`services/voice.ts`** — streams audio from the microphone and sends it to the speech-to-text engine in real time.
+2. **`hooks/useVoiceIntegration.tsx`** — the React hook (99 KB) that manages voice state, keyterm detection, and integration with the prompt input system.
+3. **`voice/voiceModeEnabled.ts`** — the feature gate that checks whether `VOICE_MODE` is active before initializing voice components.
+
+When you activate voice mode, the microphone opens and transcription begins immediately. The transcribed text streams into the prompt input as you speak. Audio capture stops when you release the activation key or when a silence threshold is detected.
+
+## Using voice mode
+
+<Steps>
+  <Step title="Activate voice input">
+    Press and hold the voice activation keybinding. The status bar updates to show that the microphone is active.
+  </Step>
+  <Step title="Speak your prompt">
+    Dictate your prompt naturally. Transcribed text appears in the input field in real time so you can follow along.
+  </Step>
+  <Step title="Review and edit">
+    Release the keybinding when you finish speaking. The transcription stops and focus returns to the prompt input. Edit the text if needed before pressing Enter to submit.
+  </Step>
+</Steps>
+
+## Keyterm detection
+
+The voice integration hook includes a keyterm detection layer. You can configure a wake word or activation phrase; when Claude Code hears it, voice capture starts automatically without requiring a key press. This is useful for hands-free workflows where the terminal is visible but the keyboard is not immediately accessible.
+
+## Platform requirements
+
+Voice mode relies on system audio APIs for microphone access. The following conditions apply:
+
+- **macOS** — fully supported; audio capture uses native macOS APIs.
+- **Linux** — supported when a compatible audio subsystem (ALSA or PulseAudio) is available.
+- **Windows (WSL)** — microphone passthrough from the Windows host to WSL may require additional configuration depending on your WSL version.
+
+A working microphone and appropriate system permissions are required on all platforms.
+
+<Tip>
+  Voice mode is most useful for longer, more conversational prompts where typing would slow you down — for example, describing a complex refactor, explaining a bug's context, or giving multi-step instructions.
+</Tip>
